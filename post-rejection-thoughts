@@ -1,0 +1,37 @@
+
+
+"The computational part of the manuscript is essential in making the point about how ACC heterogeneity impacts rhythmic processing"
+
+"The most novel finding here is that heterogeneity supports the ability of a network to respond simultaneously to multiple inputs at different frequencies,..."
+
+---------------
+
+reduce # currents while keeping realistically heterogeneous IPs
+use my 2-IN model producing simultaneous beta and gamma in a shared PY population
+vary (f1,f2) to PY over 2D space (look at "permitted combinations of frequencies")
+look at the rhythm power varies ...
+
+vary the width of a distribution for each gmax by itself (ie, look at heterogeneity in one parameter)
+calculate coactivity from fraction spiking (not just presence or absence of a spiking cell)
+look at how degree of heterogeneity affects response to different frequencies
+
+Q: how do E-E connections affect things?
+Q: effect of heterogeneity in coupling strength?
+Q: "if instead of this clock-like oscillatory network (not plausible biologically) an irregular oscillatory model with homogeneous cellular properties was taken (Brunel and Hakim 1999, Brunel 2000), would the role of heterogenous cellular properties still be the same? 
+
+add weak recurrent coupling within E1 and within E2
+
+
+include model equations in manuscript
+
+
+
+Paper: Arnal and Giraud, Wyart:  multimodal integration
+
+
+
+
+
+
+
+

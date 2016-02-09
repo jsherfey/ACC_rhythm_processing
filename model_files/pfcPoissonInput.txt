@@ -1,0 +1,26 @@
+% pfcPoissonInput
+
+tOn_pfcInp = 0;               % in ms
+tOff_pfcInp = 1000;           % in ms
+latency_pfcInp = 0;           % in ms (rise and decay time constant for the input)
+freq_pfcInp = 0;              % sequence of frequencies, e.g. 0 Hz only DC component, 10 Hz modulation (alpha) or 25 Hz (beta) or 35 Hz (low gamma), or first alpha, then beta/gamma, etc.
+normFreqSigma_pfcInp = 0.03;  % normalized Freq sigma.
+phase_pfcInp = 0;             % useful to introduce a phase lag between different components
+widthSigma_pfcInp = 0.001;    % 0.001 represents an abrupt connectivity transition (in contrast to 0.1; it only applies to dc+ac not the baseline)
+rate_pfcInp_baseline = 3;     % kHz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
+rate_pfcInp_dc = 0;           % kHz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
+rate_pfcInp_ac = 0;
+tau_pfcInp = 2;               % ms, exponential decay time constant (AMPA)
+kick_pfcInp = 1;              % conductance increase after a spike
+interval = 1000;              % interval (ms)
+
+g_pfcInp = 0;                 % mS/cm^2, external conductance (rate normalized)
+E_pfcInp = 0;                 % reversal potential (mV; AMPA)
+
+S = getGenExtPoissonTotalGating(tOn_pfcInp,tOff_pfcInp,latency_pfcInp,freq_pfcInp,normFreqSigma_pfcInp,phase_pfcInp,widthSigma_pfcInp,rate_pfcInp_baseline,rate_pfcInp_dc,rate_pfcInp_ac,tau_pfcInp,kick_pfcInp,Npop,interval,dt);
+Gt(t) = g_pfcInp*S(:,1+floor(t/dt));
+
+% current
+i_pfcInp(t,V) = Gt(t).*(V-E_pfcInp);
+
+current => -i_pfcInp(t,V);

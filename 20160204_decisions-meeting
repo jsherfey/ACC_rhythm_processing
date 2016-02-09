@@ -1,0 +1,36 @@
+Questions for decisions group:
+Q: input? (current injection vs poisson; current poisson vs more complicated?)
+Q: does it make more sense to match spike rates by randomly selecting spikes from the inputs with faster modulation frequency?
+Q: should I determine f0 with a tonic DC input or a poisson DC input?
+- talk to Salva about poissrnd units and what's going on with his functions
+
+todo:
+- control mean and stdev of input
+- debug poisson input (spiking should be asynchronous)
+- increase Iapp, injected should produce some async when lower I(t) can drive spiking
+
+input differences:
+injected: -g*I(t)	noise~N(0,1) (gaussian)
+poisson:  -g*S(t)*V	noise has time constant (tau)
+	  where I(t)~S(t)
+
+Estimating mean and standard deviation of the input:
+<I> ~ gmax*tauD*r*(<V>-E), where r=<lambda>
+std(I) ~ gmax^2*tauD*r*std(V)^2
+	issue: how to estimate std(V)
+
+vary ratio of AC/DC to simulate sources with varying degrees of synchrony. AC/DC big (very synchronous); AC/DC small (less synchronous). AC=0 (random spike phases = no synchrony).
+
+------------------------------------------------------------
+
+Sujith research question:
+REM important for procedural motor consolidation
+Prominent REM beta in motor areas, related to post-STN PGO wave BG-cortical transmission
+First model finger tapping task in "awake" model
+Change chemical environment to reflect REM changes, what happens to plasticity in motor areas?
+
+
+
+
+
+
