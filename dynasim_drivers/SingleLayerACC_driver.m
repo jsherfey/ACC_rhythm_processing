@@ -493,7 +493,7 @@ for i=1:num_gINPUTs
   
   subplot(nrows,ncols,ncols*(i-1)+1) % (f,r)
   plot(f1,r1,'bo-',f1,r2,'ro-'); ylim(rlims);
-  xlabel(sprintf('f1 (f2=%g)',f2)); ylabel('spike rate'); legend('E1','E2');
+  xlabel(sprintf('f1 (f2=%g)',f2)); ylabel('spike rate'); %legend('E1','E2');
   xmin=min(xlim); xmax=max(xlim);
   ymin=min(ylim); ymax=max(ylim);
   text_xpos=xmin+.05*(xmax-xmin);
@@ -527,7 +527,7 @@ for i=1:num_gINPUTs
   
   subplot(nrows,ncols,ncols*(i-1)+6) % (I,r)
   plot(I1,r1,'bo-',I2,r2,'ro-'); ylim(rlims);
-  xlabel('mean input'); ylabel('spike rate'); %legend('E1','E2');
+  xlabel('mean input'); ylabel('spike rate'); legend('E1','E2');
   
 end
 plottype='Exps1-3_E1-vs-E2-summary'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f1-%g-%gHz_f2-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f1(1),f1(end),f2(1),f2(end),plottype),'-djpeg');
@@ -544,6 +544,9 @@ PlotData(data,'variable',plot_var,'plot_type','rastergram');
 PlotData(data,'variable','v','plot_type','power','xlim',[0 100]);
 PlotData(SelectData(data,'varied',{'E_realization',1}),'variable',plot_var,'plot_type','rastergram');
 
+% # debug trouble pushing changes to repo
+% http://stackoverflow.com/questions/7438313/pushing-to-git-returning-error-code-403-fatal-http-request-failed
+% 
 
 % -------------------------------------------------------------
 % todo:
@@ -995,7 +998,7 @@ PlotData(data);
 
 % modeling: draw gmax from uniform then fit some by searching normal or
 % lognormal distributed values around candidates:
-% O’Leary, T., Williams, A. H., Franci, A., & Marder, E. (2014). Cell types, network homeostasis, and pathological compensation from a biologically plausible ion channel expression model. Neuron, 82(4), 809-821.
+% O???Leary, T., Williams, A. H., Franci, A., & Marder, E. (2014). Cell types, network homeostasis, and pathological compensation from a biologically plausible ion channel expression model. Neuron, 82(4), 809-821.
 % SI: http://www.cell.com/cms/attachment/2015989148/2036876781/mmc1.pdf
 
 % experiment + modeling: complicated, choose uniform spanning realistic range
