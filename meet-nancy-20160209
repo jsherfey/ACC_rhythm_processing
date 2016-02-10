@@ -1,0 +1,44 @@
+
+
+1. compare total input strength between fc vs f0; Q: does the difference in fc and f0 result from differences in Imeans? probably need to match the # of spikes in the input spike trains.
+
+2. calculate cooperation, competition, and coactivity indices
+	coactivity: sum(min(rE1(t),rE2(t)),t) with r's calculated in nonoverlapping 10ms bins
+	normalized coactivity: coactivity/Nbins/max(rE1(:),rE2(:))
+	cooperation: dot(nE1(t),nE2(t)) where nEX(t)=# spikes in pop X in time bin t
+	normalized cooperation: cooperation/(sum(nE1)*sum(nE2))
+	competition: sum(nE1)-sum(nE2)
+	normalized competition: ...
+
+TODO:
+1. match <s1> and <s2>, so only difference is spectral content
+2. calculate f0=f(gINPUT) and fc=f(gINPUT) given matched input strengths and/or # spikes
+- look at spectral content of E1 and E2, as well as competition/synchrony/coactivity indices
+	Q: how does it depend on which input is faster? closer to natural frequency? closer to resonance frequency?
+- consider INfast only, INslow only, and both (look for two spectral peaks in E1 and E2); represents ACC L2/3 vs L5/6
+	Q: does each pop follow the frequency of its input? inherit frequency of the other? 
+	Q: how does that depend on whether there is one inhibition time constant, two, and its specific value?
+- consider model with H-channel and M-channel
+
+competition = |NE1-NE2|/max(NE1,NE2) where NEx = (# spikes in pop x)
+
+- simulations are 2-3 seconds
+- single cell spike rates (# spikes in one cell / time bin) may be as low as 5Hz (therefore need 200ms bin size for rate calculation)
+- want to assess how synchronous spikes are between two populations of N cells each
+- spiking is "synchronous" between populations A and B if each has spikes occurring within 10ms of each other 
+
+story:
+1a. how spectral content of rhythmic inputs determines combinatorial processing in target populations? how and in what regime input spectra can be used to route activity?
+1b. how input spectra-based routing depends on inhibition time constants (INfast,INslow,both) and ephys heterogeneity (iH,iM,Eleak)|(none,low,high) at different drives
+2a. how inputs (and maybe E/INfast/INslow connectivity) shape formation of rule-coding (contextual) rhythmic E assemblies
+2b. how differential spike synchrony can be used to route activity? (i.e., how rhythmic input competes with nonrhythmic input). 
+2c. how that depends on target reader cell and network properties.
+
+
+--------------------------------------
+Q for Salva: should I balance mean input or # spikes?
+	goal: want spectral content to be only difference driving E1 vs E2
+	need to figure out why fc and f0 differ so much for same gINPUT
+Q for Nancy: is spike synchrony/coherence a better way to frame "cooperative" activity? and to discuss competition and synchrony as independent axes.
+
+
