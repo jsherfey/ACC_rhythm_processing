@@ -173,33 +173,68 @@ s_=ApplyModifications(s,modifications);
 
 % set experimental parameters
 gINPUT=.01:.01:.08; fINPUT=10:10:60; num_repetitions=5;
-dc=0; ac=1; baseline=.1; tau=2; target='E';
+dc=.1; ac=1; baseline=0; tau=2; target='E';
 
 % set simulation and analysis parameters
 cluster_flag=1; sims_per_job=25; mem_limit='8G';
 post_downsample_factor=1;
 proc_variables={'E_v','If_v','Is_v'}; % []
 
+f=2; % Hs
+dt=.01; % ms
+t=0:(dt/1000):1/f; % one cycle
+n=length(t);
+dc_nonhomo=.1; 
+ac=1;
+I = max(0,ac*sin(2*pi*f*t)+dc_nonhomo);
+Imean = sum( I ) / n;
+dc_homo=Imean;
+
+nf=length(fINPUT);
+dc_homo = zeros(1,nf);
+for i=1:nf
+  t=0:(dt/1000):1/fINPUT(i); % one cycle
+  I = max(0,ac*sin(2*pi*fINPUT(i)*t)+dc);
+  dc_homo(i) = sum(I)/length(t);
+end
+dc_homo
+
+f=1:5; num_repetitions=1; gINPUT=[.01 .02 .06 .1];
+[model,vary]=PrepProbeResonance(s_,'f',0,'dc',dc_homo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+[dat1,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
+[model,vary]=PrepProbeResonance(s_,'f',f,'dc',dc_nonhomo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+[dat2,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
+for i=1:4,mean(dat1(i).model.fixed_variables.E_s(:)),end
+for i=1:4,mean(dat2(i).model.fixed_variables.E_s(:)),end
+
+% match the mean strengths of the homogeneous and nonhomogeneous
+% poisson-based inputs by adjusting the dc component to match the means 
+% of their lambda's:
+baseline=0; dc_nonhomo=.1; ac=1;
+t=0:1e-5:1; % one cycle
+I=max(0,ac*sin(2*pi*t)+dc_nonhomo);
+dc_homo=sum(I)/length(t);
+
 % -------------------------------------------------------------------------
 % EXPERIMENT #1: Homogeneous Poisson
 study_dir_exp1=sprintf('dynasim_studies/%s_TonicPoisson',prefix);
-[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_homo,'ac',ac,'tau',tau,'baseline',baseline);
 [data1,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp1,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #2: Nonhomogeneous Poisson (rhythmic)
 study_dir_exp2=sprintf('dynasim_studies/%s_OneRhythmPoisson',prefix);
-[model,vary]=PrepProbeResonance(s_,'f',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeResonance(s_,'f',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data2,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp2,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #3: Two rhythmic Poisson inputs
 study_dir_exp3=sprintf('dynasim_studies/%s_TwoRhythmPoisson',prefix);
-[model,vary]=PrepProbeTwoRhythms(s_,'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeTwoRhythms(s_,'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data3,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp3,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % POST-PROCESSING
 if cluster_flag
-  data1=ImportData(study_dir_exp1,'variables',proc_variables);
-  data2=ImportData(study_dir_exp2,'variables',proc_variables);
+  data1=ImportData(study_dir_exp1);%,'variables',proc_variables);
+  data2=ImportData(study_dir_exp2);%,'variables',proc_variables);
   data3=ImportData(study_dir_exp3);%,'variables',proc_variables);
 end
 % experiment 1: calc network fMUA=f(gINPUT)
@@ -222,9 +257,32 @@ if post_downsample_factor>1
   data3=DownsampleData(data3,post_downsample_factor);
 end
 
+% compute mean inputs for experiments 1 and 2
+inds1=1:num_repetitions:length(data1);
+inds2=1:(num_repetitions*length(fINPUT)):length(data2);
+Smean_f0=zeros(1,length(gINPUT)); 
+Smean_fc=zeros(1,length(gINPUT)); 
+for i=1:length(gINPUT)
+  Smean_f0(i)=gINPUT(i)*mean(data1(inds1(i)).model.fixed_variables.E_s(:));
+  Smean_fc(i)=gINPUT(i)*mean(data2(inds2(i)).model.fixed_variables.E_s(:));
+end
+% compare natural freq f0=f(gINPUT) vs resonance freq fc=f(gINPUT):
+f0=stats_f0.E_v_Power_MUA.repetition_sets.PeakFreq_mu;
+f0e=stats_f0.E_v_Power_MUA.repetition_sets.PeakFreq_sd/sqrt(stats_f0.num_repetitions);
+fc=stats_fc.E_v_FR.sweep_sets.repetition_sets.sweep_pop_FR_max_mu;
+fce=stats_fc.E_v_FR.sweep_sets.repetition_sets.sweep_pop_FR_max_sd/sqrt(stats_fc.num_repetitions);
 
-
-%PlotData(data);
+x=gINPUT;
+y1=fc(1:length(gINPUT)); y1e=fce(1:length(gINPUT));
+y2=f0(1:length(gINPUT)); y2e=f0e(1:length(gINPUT));
+figure; 
+subplot(2,2,1); plot_CI(x,y1,y1e,'r'); hold on; plot_CI(x,y2,y2e,'b'); 
+xlabel('gINPUT'); ylabel('freq [Hz]'); legend('fc','fMUA');
+subplot(2,2,3); plot(x,Smean_fc,'r',x,Smean_f0,'b','linewidth',3)
+xlabel('gINPUT'); ylabel('<G(t)>'); legend('for fc','for fMUA');
+subplot(2,2,[2 4]); plot(Smean_fc,fc,'r',Smean_f0,f0,'b','linewidth',3);
+xlabel('<G(t)>'); ylabel('freq [Hz]'); legend('fc','fMUA');
+plottype='Exps1-2_fc-vs-fMUA'; print(gcf,sprintf('%s_gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
 
 return
 
