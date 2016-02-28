@@ -120,12 +120,14 @@ if save_plots_flag==1, plot_functions=@PlotData; else plot_functions=[]; end
 data=SimulateModel(model,'vary',vary,solver_options{:},'plot_functions',plot_functions,'plot_options',plot_options,'study_dir',study_dir,'prefix',prefix,'save_results_flag',save_plots_flag,'save_data_flag',save_data_flag);
 PlotData(data,'ylim',[-100 50]); file=fullfile(study_dir,'waveforms.jpg'); print(gcf,file,'-djpeg');
 
-if 0 % qualitatively assess a particular model
-  m=data(5).model; amps=-50:50:400; I=1:10;
+if 0 % quantitatively assess a particular model
+  index=8; m=data(index).model; amps=-50:25:550;
   d=ProbeCellProperties(ApplyModifications(m,{'Iinj',0}),'amplitudes',amps,solver_options{:});%'compile_flag',1,'verbose_flag',1,'solver','rk2');
-  PlotData(d(I))
+  PlotData(d(unique(round(linspace(1,length(d),10)))))
   stats=CalcCellProperties(d,'plot_flag',0);
   stats.pop1
+  file=fullfile(study_dir,sprintf('sim%g_ProbeCell_AHPtime%g_RMP%g_Ih%g_ISImedian%g_AR%g_APamp%g_APdur%g_ISI%g_FRmin%g.jpg',index,stats.pop1.AHP_time2trough,stats.pop1.RMP,stats.pop1.Ih_abssag,stats.pop1.ISI_median,stats.pop1.AR23,stats.pop1.AP_amp,stats.pop1.AP_dur,stats.pop1.ISI1,stats.pop1.FR_min));
+  print(gcf,file,'-djpeg');
 end  
 % -------------------------------------------------------------------------
 % Step 2: quantitative assessment of single IP = f(param)
