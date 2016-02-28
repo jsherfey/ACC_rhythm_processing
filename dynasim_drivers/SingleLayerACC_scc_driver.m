@@ -37,14 +37,17 @@
 % in rat dorsal AC (paper submitted; data from LeBeau lab), which exceeds 
 % heterogeneity observed in other prefrontal regions (e.g., PrL and IL).
 
+% In presence of kainate-induced field oscillation, superficial cells spike
+% at .5Hz, deep cells spike at 5Hz. (source: Natalie Adams with Fiona LeBeau)
+% https://mail.google.com/mail/u/0/#search/tallie/152c75bdbb709916
+
 project_dir='~/projects/ACC_rhythm_processing';
 if isempty(strfind(path,[project_dir, pathsep]));
   addpath(genpath(project_dir));  
 end
-tstart=tic;
 
 %% SIMULATOR CONTROLS (what to do)
-tspan=[0 2000];  % [ms], time limits on numerical integration
+tspan=[0 1000];%[0 10000];  % [ms], time limits on numerical integration
 dt=.01;         % [ms], time step for numerical integration
 solver='rk2';   % {options; 'rk4', 'rk2', 'rk1'}, solver to use
 compile_flag=1; % whether to compile the simulation
@@ -52,42 +55,78 @@ verbose_flag=1; % whether to display log information
 downsample_factor=10;
 solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor};
 % -------------------------------------------------------------------------
-%% Population definitions
-
+% Population definitions
 % population sizes
-nE=8; % # of E-cells per population
-nI=2; % # of I-cells per population
-prefix=sprintf('ACC_1Layer_%gE%gIs%gIf_iNaK',nE,nI,nI);
+nE=20; % # of E-cells per pyramidal population
+nI=5;  % # of I-cells per interneuron population
+% select interneuron populations
+If_flag=1; % whether to include interneurons with fast inhibition
+Is_flag=1; % whether to include interneurons with slow inhibition
+% [NOT IMPLEMENTED] select cell models
+E_type='ACd_Class1'; % options: {'ACC_sup','ACC_deep'} (differentiated by rat ACd PY IPs measured by Natalie Adams)
+If_type='FS';     % options: {'FS','RSNP','LTS'}    (differentiated by electrophysiological class)
+Is_type='RSNP';   % options: {'FS','RSNP','LTS'}    (differentiated by electrophysiological class)
+% [NOT IMPLEMENTED] select heterogeneity degree and E-cell model parameters to distribute
+heterogeneity_degree=0; % options: {0,1,2}
+distribution='uniform'; % options: {'uniform','normal','lognormal'}
+heterogeneous_params={}; % options: {'Eleak','gCaT','gAHP'}
 % -------------------------------------------------------------------------
-% general input parameters (used for all inputs, whether experiment or other):
-inpE=7; % E input amplitude [uA/cm2]
-inpI=0;  % I input amplitude [uA/cm2]
-KE1=1;KE2=1;KI1=0;KI2=0;
+% Tonic injected current parameters
+Iapp_E=0;   % uA/cm2, amplitude of injected current to E-cells
+Iapp_I=0;   % uA/cm2, amplitude of injected current to I-cells
+
+% Poisson noise parameters
+baseline_rate_E=.1; % kHz, baseline poisson rate to E-cells
+baseline_rate_I=.1; % kHz, baseline poisson rate to E-cells
+gNOISE=.03;        % mS/cm2, noise scaling factor 
+kick=1;            % mS/cm2, generic conductance kick per spike
+% note: parameters chosen s.t. baseline cell FR ~ 1-4Hz in {iNa,iK} cell
+
+% Notes on Salva's Poisson parameters for PFC inputs to MSN network:
+% https://mail.google.com/mail/u/0/#inbox/152ec80bc9304667
+
+% Tallie's comments on cell spike rates during field oscillation:
+% https://mail.google.com/mail/u/0/#search/tallie/152c75bdbb709916
+
 % -------------------------------------------------------------------------
 % Connectivity kernels and parameters:
 
-% time constants [ms]
-tauE=2;   % E
-tauIf=5; % If
-tauIs=15; % Is
-
-% max conductances [uS/cm2] (homogeneous or lognormal)
-gEE=0;  % E->E
-gEI=.2; % I->E
-gIE=.2; % E->I
-gII=0;  % I->I
-
-% kernels
+% connectivity kernels
 netconEE=zeros(nE,nE); % E->E, N_pre x N_post
 netconEI=ones(nI,nE);  % I->E, N_pre x N_post
 netconIE=ones(nE,nI);  % E->I, N_pre x N_post
 netconII=zeros(nI,nI); % I->I, N_pre x N_post
+
+% synaptic reversal potentials
+EAMPA=0;   % mV, AMPA reversal potential
+EGABA=-80; % mV, GABA reversal potential
+
+% synaptic time constants [ms]
+tauAMPA=2;  % excitatory decay time constant
+tauIf=5;    % If, fast inhibitory decay time constant
+tauIs=13;   % Is, slow inhibitory decay time constant
+
+% total max synaptic conductances [uS/cm2] (homogeneous or lognormal)
+% gEE=0;  % E->E
+% gEI=.2; % I->E
+% gIE=.2; % E->I
+% gII=0;  % I->I
+gEE=0;            % E->E
+gEI=1.4;          % I->E
+gIE=(nI/nE)*gEI;  % E->I
+gII=.5*gIE;       % I->I
+
+% max synaptic conductances per synapse (normalized by number of presynaptic sources for each postsynaptic target cell)
+gEE=gEE./max(1,sum(netconEE,1)); % [1 x N_post]
+gEI=gEI./max(1,sum(netconEI,1)); % [1 x N_post]
+gIE=gIE./max(1,sum(netconIE,1)); % [1 x N_post]
+gII=gII./max(1,sum(netconII,1)); % [1 x N_post]
+
 % -------------------------------------------------------------------------
 % Heterogeneous biophysics (distribution options: uniform or lognormal): E,I:{gi,wi}(currents)
 
-% type of heterogeneity
-heterogeneity_degree=0; % options: {0,1,2}
-distribution='uniform'; % options: {'uniform','normal','lognormal'}
+% mean parameter value (mean gmax)
+mu=1; 
 
 % degree of heterogeneity
 switch heterogeneity_degree
@@ -112,59 +151,112 @@ switch distribution
 end
 
 % draw parameter values from desired distribution
-mu=1; % mean parameter value (mean gmax)
 param_values=paramdist(mu,sigma,nE);
 
-% gNa
-% gK
-% gM
-% gH
-% gNap
-% Epas
+% (gCaT,gAHP,Eleak)
 
 % -------------------------------------------------------------------------
 % Homogeneous biophysics
-% Cm
-% Rpas
-% ENa
-% EK
-% Eh
+Cm=1;         % uF/cm2, membrane capacitance
+v_IC=-65;     % mV, voltage initial condition
+v_IC_noise=1; % mV, scale of normally distributed IC noise
+              % IC: v(0)=v_IC+v_IC_noise*randn
+
+% (gNa,gK,gNaP,gleak)  (note: Rleak=1/gleak)
+% (ENa,EK,ECa,Eh)
+
 % -------------------------------------------------------------------------
-% Analysis parameters
-bin_size=30;  % [ms], for spike rate calculation
-bin_shift=10; % [ms], for spike rate calculation
-% -------------------------------------------------------------------------
-% Plotting parameters
-plot_var='v'; % plot voltages [mV] for all populations
-% -------------------------------------------------------------------------
+
+% shared cell parameters
+noise_parameters={'kick',kick,'gNOISE',gNOISE,'tauAMPA',tauAMPA,'EAMPA',EAMPA};
+fixed_biophysics={'Cm',Cm,'v_IC',v_IC,'v_IC_noise',v_IC_noise};
+shared_parameters=cat(2,noise_parameters,fixed_biophysics);
+
 % Network Specification
 s=[];
-s.pops(1)    =ACC_Ecell_specification;
+s.pops(1)    =ACC_Ecell_specification(E_type);
 s.pops(end).name='E';
 s.pops(end).size=nE;
-s.pops(end).parameters={'input',inpE,'K1',KE1,'K2',KE2};
-s.pops(end+1)=ACC_Icell_specification;
-s.pops(end).name='If';
-s.pops(end).size=nI;
-s.pops(end).parameters={'input',inpI,'K1',KI1,'K2',KI2};
-s.pops(end+1)=ACC_Icell_specification;
-s.pops(end).name='Is';
-s.pops(end).size=nI;
-s.pops(end).parameters={'input',inpI,'K1',KI1,'K2',KI2};
+s.pops(end).parameters={'baseline_rate',baseline_rate_E,'Iapp',Iapp_E,shared_parameters{:}};
+if If_flag
+  s.pops(end+1)=ACC_Icell_specification(If_type);
+  s.pops(end).name='If';
+  s.pops(end).size=nI;
+  s.pops(end).parameters={'baseline_rate',baseline_rate_I,'Iapp',Iapp_I,shared_parameters{:}};
+end
+if Is_flag
+  s.pops(end+1)=ACC_Icell_specification(Is_type);
+  s.pops(end).name='Is';
+  s.pops(end).size=nI;
+  s.pops(end).parameters={'baseline_rate',baseline_rate_I,'Iapp',Iapp_I,shared_parameters{:}};
+end
 s.cons=[];
-s.cons(1).direction    ='E->If';
+s.cons(1).direction    ='E->E';
 s.cons(end).mechanism_list='iAMPA';
-s.cons(end).parameters={'gSYN',gIE,'tauI',tauE,'netcon',netconIE};
-s.cons(end+1).direction='E->Is';
-s.cons(end).mechanism_list='iAMPA';
-s.cons(end).parameters={'gSYN',gIE,'tauI',tauE,'netcon',netconIE};
-s.cons(end+1).direction='E<-If';
-s.cons(end).mechanism_list='iGABAa';
-s.cons(end).parameters={'gSYN',gEI,'tauI',tauIf,'netcon',netconEI};
-s.cons(end+1).direction='E<-Is';
-s.cons(end).mechanism_list='iGABAa';
-s.cons(end).parameters={'gSYN',gEI,'tauI',tauIs,'netcon',netconEI};
+s.cons(end).parameters={'gSYN',gEE,'tauD',tauAMPA,'netcon',netconEE,'ESYN',EAMPA};
+if If_flag
+  s.cons(end+1).direction    ='E->If';
+  s.cons(end).mechanism_list='iAMPA';
+  s.cons(end).parameters={'gSYN',gIE,'tauD',tauAMPA,'netcon',netconIE,'ESYN',EAMPA};
+  s.cons(end+1).direction='E<-If';
+  s.cons(end).mechanism_list='iGABAa';
+  s.cons(end).parameters={'gSYN',gEI,'tauD',tauIf,'netcon',netconEI,'ESYN',EGABA};
+  if any(gII)>0
+    s.cons(end+1).direction='If->If';
+    s.cons(end).mechanism_list='iGABAa';
+    s.cons(end).parameters={'gSYN',gII,'tauD',tauIf,'netcon',netconII,'ESYN',EGABA};
+  end
+end
+if Is_flag
+  s.cons(end+1).direction='E->Is';
+  s.cons(end).mechanism_list='iAMPA';
+  s.cons(end).parameters={'gSYN',gIE,'tauD',tauAMPA,'netcon',netconIE,'ESYN',EAMPA};
+  s.cons(end+1).direction='E<-Is';
+  s.cons(end).mechanism_list='iGABAa';
+  s.cons(end).parameters={'gSYN',gEI,'tauD',tauIs,'netcon',netconEI,'ESYN',EGABA};
+  if any(gII)>0
+    s.cons(end+1).direction='Is->Is';
+    s.cons(end).mechanism_list='iGABAa';
+    s.cons(end).parameters={'gSYN',gII,'tauD',tauIs,'netcon',netconII,'ESYN',EGABA};
+  end
+end
+if If_flag && Is_flag && any(gII)>0
+  s.cons(end+1).direction='Is->If';
+  s.cons(end).mechanism_list='iGABAa';
+  s.cons(end).parameters={'gSYN',gII,'tauD',tauIs,'netcon',netconII,'ESYN',EGABA};  
+  s.cons(end+1).direction='Is<-If';
+  s.cons(end).mechanism_list='iGABAa';
+  s.cons(end).parameters={'gSYN',gII,'tauD',tauIf,'netcon',netconII,'ESYN',EGABA};  
+end
+    
+% no competition b/w If and Is
+vary={'E','baseline_rate',1; 'E','gM',10; '(If,Is)','baseline_rate',.5;
+      '(Is->If,If->Is)','gSYN',[0 gII(1)*2]; '(Is->If,Is->Is,Is->E)','tauD',[5:2.5:15]};   
 
+% Play (manually explore the model):
+vary={'E','baseline_rate',[5 10 15]; 'E','gM',10; '(If,Is)','baseline_rate',[0 .5 1];
+      '(Is->If,If->Is)','gSYN',gII(1)*2; '(Is->If,Is->Is,Is->E)','tauD',[5]};   
+    
+% Simulate model and plot simulated data
+data=SimulateModel(s,'vary',vary,solver_options{:});
+PlotData(data,'plot_type','rastergram')
+%print(gcf,'2-non-competing-IN-pops_tauIs5-15ms_E-NaKMleak_rastergram.jpg','-djpeg');
+PlotData(data,'plot_type','power','xlim',[0 100],'ylim',[0 20])
+%print(gcf,'2-non-competing-IN-pops_tauIs5-15ms_E-NaKMleak_power.jpg','-djpeg');
+PlotData(data,'plot_type','waveform','xlim',[0 500])
+%print(gcf,'2-non-competing-IN-pops_tauIs5-15ms_E-NaKMleak_avg-V.jpg','-djpeg');
+%PlotData(data,'plot_type','waveform','variable','E_v')
+
+[p,f]=LocateModelFiles(data); p{:},f{:}
+
+
+% -------------------------------------------------------------------------
+%% PREPARE FOR SIMULATION STUDIES
+
+% Naming convention:
+% ...
+
+tstart=tic;
 
 % -------------------------------------------------------------------------
 % turn off injected inputs for experiments
@@ -173,39 +265,12 @@ s_=ApplyModifications(s,modifications);
 
 % set experimental parameters
 gINPUT=.01:.01:.08; fINPUT=10:10:60; num_repetitions=5;
-dc=.1; ac=1; baseline=0; tau=2; target='E';
+tau=2; target='E';
 
 % set simulation and analysis parameters
 cluster_flag=1; sims_per_job=25; mem_limit='8G';
 post_downsample_factor=1;
 proc_variables={'E_v','If_v','Is_v'}; % []
-
-f=2; % Hs
-dt=.01; % ms
-t=0:(dt/1000):1/f; % one cycle
-n=length(t);
-dc_nonhomo=.1; 
-ac=1;
-I = max(0,ac*sin(2*pi*f*t)+dc_nonhomo);
-Imean = sum( I ) / n;
-dc_homo=Imean;
-
-nf=length(fINPUT);
-dc_homo = zeros(1,nf);
-for i=1:nf
-  t=0:(dt/1000):1/fINPUT(i); % one cycle
-  I = max(0,ac*sin(2*pi*fINPUT(i)*t)+dc);
-  dc_homo(i) = sum(I)/length(t);
-end
-dc_homo
-
-f=1:5; num_repetitions=1; gINPUT=[.01 .02 .06 .1];
-[model,vary]=PrepProbeResonance(s_,'f',0,'dc',dc_homo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
-[dat1,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
-[model,vary]=PrepProbeResonance(s_,'f',f,'dc',dc_nonhomo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
-[dat2,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
-for i=1:4,mean(dat1(i).model.fixed_variables.E_s(:)),end
-for i=1:4,mean(dat2(i).model.fixed_variables.E_s(:)),end
 
 % match the mean strengths of the homogeneous and nonhomogeneous
 % poisson-based inputs by adjusting the dc component to match the means 
@@ -217,38 +282,140 @@ dc_homo=sum(I)/length(t);
 
 % -------------------------------------------------------------------------
 % EXPERIMENT #1: Homogeneous Poisson
-study_dir_exp1=sprintf('dynasim_studies/%s_TonicPoisson',prefix);
+study_dir_exp1=fullfile(pwd,'dynasim_studies',sprintf('%s_TonicPoisson',prefix));
 [model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_homo,'ac',ac,'tau',tau,'baseline',baseline);
 [data1,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp1,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #2: Nonhomogeneous Poisson (rhythmic)
-study_dir_exp2=sprintf('dynasim_studies/%s_OneRhythmPoisson',prefix);
+study_dir_exp2=fullfile(pwd,'dynasim_studies',sprintf('%s_OneRhythmPoisson',prefix));
 [model,vary]=PrepProbeResonance(s_,'f',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data2,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp2,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #3: Two rhythmic Poisson inputs
-study_dir_exp3=sprintf('dynasim_studies/%s_TwoRhythmPoisson',prefix);
+study_dir_exp3=fullfile(pwd,'dynasim_studies',sprintf('%s_TwoRhythmPoisson',prefix));
 [model,vary]=PrepProbeTwoRhythms(s_,'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data3,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp3,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % POST-PROCESSING
 if cluster_flag
+  tic
   data1=ImportData(study_dir_exp1);%,'variables',proc_variables);
   data2=ImportData(study_dir_exp2);%,'variables',proc_variables);
   data3=ImportData(study_dir_exp3);%,'variables',proc_variables);
+  toc
 end
+
+% todo:
+% 1. add measures for single data set (competition and sync; prep for 1 and 2 pops)
+% 2. decide how to scale up analysis
+% 3. sim studies
+%   (a) One population sims. For nets with INfast, INslow, and both
+%       - examine fc and fMUA (experiments 1 and 2)
+%       - examine sync (experiments 1 and 2)
+%   (b) Add heterogeneity to E population and redo sims (a)
+%   (c) Two population sims. For nets with INfast, INslow, and both
+%       - examine fMUA in E1 vs E2 (experiments 1-3)
+%       - examine sync and competition (E1,E2) (experiment 3)
+
+% ---------------------------
+% Select data sets
+% ...
+
+d=SelectData(data1,'varied',{'E_repetition',1});
+PlotData(d);
+PlotData(d,'plot_type','rastergram');
+PlotData(d,'plot_type','power','xlim',[0 100],'variable','E_v');
+PlotData(d,'plot_type','power','xlim',[0 100]);
+
+d=SelectData(data2,'varied',{'E_repetition',1});
+PlotData(d);
+PlotData(d,'plot_type','rastergram');
+PlotData(d,'plot_type','power','xlim',[0 100],'variable','E_v');
+
+PlotData(data1(end),'plot_type','rastergram');
+PlotData(data2(end),'plot_type','rastergram');
+
+tic; res1=CalcSpikeSync(data1(end)), toc
+tic; res2=CalcSpikeSync(data2(end)), toc
+figure; 
+subplot(1,2,1); imagesc(res1.E_v_E_v_xcsum_cells); caxis([0 1.5]); axis square
+subplot(1,2,2); imagesc(res2.E_v_E_v_xcsum_cells); caxis([0 1.5]); axis square
+
+% N=10; x_c=0.25; % center of first category
+% widthSigma=.001;
+% widthSigma=.01;
+% x_N = ((1:N)-0.5)/N;
+% conn = 1./(1+exp(-cos(2*pi*(x_N-x_c))/widthSigma))
+
+s=get_input('poisson',8,data1(1).time,0,dc,ac,tau,xc,baseline,phase);
+% .13
+% .32
+
+ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];'If_v',[0 1],'Is_v',[0 1]};
+result=AnalyzeData(data1(end),@CalcSpikeSync,'ROI_pairs',ROI_pairs)
+AnalyzeData(data1(end),@CalcSpikeSync,'ROI_pairs',ROI_pairs,'save_data_flag',1,'result_file','test_result.mat');
+
+[all_values,param_names,unique_values]=CollectVariedParams(data1);
+[P,L,V]=CollectVariedParams(data1);
+
+% ------------------------
+% TEST:
+% set experimental parameters
+gINPUT=.01:.01:.08; num_repetitions=10; tau=2; target='E';
+% set simulation, analysis, and plot parameters
+cluster_flag=1; sims_per_job=5; mem_limit='8G'; post_downsample_factor=1;
+plot_functions={@PlotData,@PlotData,@PlotData,@PlotData};
+plot_options={
+  {'plot_type','waveform'},...
+  {'plot_type','rastergram'},...
+  {'plot_type','power','xlim',[0 100]},...
+  {'plot_type','power','xlim',[0 100],'variable','E_v'},...
+  };
+study_dir_test1=fullfile(pwd,'dynasim_studies',sprintf('%s_TonicPoisson_test',prefix));
+[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_homo,'ac',ac,'tau',tau,'baseline',baseline);
+analysis_functions=@CalcSpikeSync;
+ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];'If_v',[0 1],'Is_v',[0 1]};
+analysis_options={'ROI_pairs',ROI_pairs,'kernel_width',1,'Ts',1,'maxlag_time',10};
+[~,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_test1,solver_options{:},...
+  'analysis_functions',analysis_functions,'analysis_options',analysis_options,'plot_functions',plot_functions,'plot_options',plot_options,...
+  'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
+sync_stats=ImportResults(study_dir_test1,@CalcSpikeSync); 
+  % [num_sims x num_calls]
+[P,L,V]=CollectVariedParams(sync_stats);
+  % P = all_values [num_sims x num_varied]
+  % L = param names {1 x num_varied}
+  % V = unique values {1 x num_varied}
+
+% Plot results over parameter space
+RxyEE=[sync_stats.E_v_E_v_xcmax_pops];
+RxyEIf=[sync_stats.E_v_If_v_xcmax_pops];
+ginp=[sync_stats.E_gINPUT];
+figure; 
+subplot(2,1,1); plot(ginp,RxyEE,'bo'); lsline
+xlabel('gINPUT'); ylabel('<Rxy(rE,rE)>');
+subplot(2,1,2); plot(ginp,RxyEIf,'ro'); lsline
+xlabel('gINPUT'); ylabel('<Rxy(rE,rIf)>');
+
+
+% ------------------------
+
+
+
+% ---------------------------
+tic
 % experiment 1: calc network fMUA=f(gINPUT)
-[stats_f0,data1]=CalcPopulationStats(data1,'repetition_parameter',[target '_repetition']);
+[stats_f0,data1]=CalcResonanceStats(data1,'repetition_parameter',[target '_repetition']);
 % experiment 2: calc network fc=f(gINPUT)
-[stats_fc,data2]=CalcPopulationStats(data2,'sweep_parameter',[target '_f'],'repetition_parameter',[target '_repetition']);
+[stats_fc,data2]=CalcResonanceStats(data2,'sweep_parameter',[target '_f'],'repetition_parameter',[target '_repetition']);
 % experiment 3: calc ROI responses
-N=model.specification.populations(1).size;
-variable=data(1).labels{1};
-dat1=SelectData(data3,'roi',{variable,find(data3(1).model.fixed_variables.E_K1>0)});
-dat2=SelectData(data3,'roi',{variable,find(data3(1).model.fixed_variables.E_K2>0)});
-clear stats
-stats(1)=CalcPopulationStats(dat1,'variable',variable,'repetition_parameter',[target '_repetition']);
-stats(2)=CalcPopulationStats(dat2,'variable',variable,'repetition_parameter',[target '_repetition']);  
+% N=data3(1).model.specification.populations(1).size;
+% variable=data3(1).labels{1};
+% dat1=SelectData(data3,'roi',{variable,find(data3(1).model.fixed_variables.E_K1>0)});
+% dat2=SelectData(data3,'roi',{variable,find(data3(1).model.fixed_variables.E_K2>0)});
+% clear stats
+% stats(1)=CalcResonanceStats(dat1,'variable',variable,'repetition_parameter',[target '_repetition']);
+% stats(2)=CalcResonanceStats(dat2,'variable',variable,'repetition_parameter',[target '_repetition']);  
+toc
 clear dat1 dat2
 % downsample for plotting
 if post_downsample_factor>1
@@ -258,8 +425,9 @@ if post_downsample_factor>1
 end
 
 % compute mean inputs for experiments 1 and 2
-inds1=1:num_repetitions:length(data1);
-inds2=1:(num_repetitions*length(fINPUT)):length(data2);
+rep_num=5;
+inds1=(1:num_repetitions:length(data1))+(rep_num-1);
+inds2=(1:(num_repetitions*length(fINPUT)):length(data2))+(rep_num-1);
 Smean_f0=zeros(1,length(gINPUT)); 
 Smean_fc=zeros(1,length(gINPUT)); 
 for i=1:length(gINPUT)
@@ -271,6 +439,7 @@ f0=stats_f0.E_v_Power_MUA.repetition_sets.PeakFreq_mu;
 f0e=stats_f0.E_v_Power_MUA.repetition_sets.PeakFreq_sd/sqrt(stats_f0.num_repetitions);
 fc=stats_fc.E_v_FR.sweep_sets.repetition_sets.sweep_pop_FR_max_mu;
 fce=stats_fc.E_v_FR.sweep_sets.repetition_sets.sweep_pop_FR_max_sd/sqrt(stats_fc.num_repetitions);
+figure; plot(fc,f0,'b',[0 60],[0 60],'k--'); xlabel('fc'); ylabel('fMUA');
 
 x=gINPUT;
 y1=fc(1:length(gINPUT)); y1e=fce(1:length(gINPUT));
@@ -282,9 +451,38 @@ subplot(2,2,3); plot(x,Smean_fc,'r',x,Smean_f0,'b','linewidth',3)
 xlabel('gINPUT'); ylabel('<G(t)>'); legend('for fc','for fMUA');
 subplot(2,2,[2 4]); plot(Smean_fc,fc,'r',Smean_f0,f0,'b','linewidth',3);
 xlabel('<G(t)>'); ylabel('freq [Hz]'); legend('fc','fMUA');
-plottype='Exps1-2_fc-vs-fMUA'; print(gcf,sprintf('%s_gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
+%plottype='Exps1-2_fc-vs-fMUA'; print(gcf,sprintf('%s_gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,gINPUT(1),gINPUT(end),fINPUT(1),fINPUT(end),plottype),'-djpeg');
 
 return
+
+if 0
+  % compare mean homogeneous and nonhomogeneous poisson input strengths
+  f=2; % Hs
+  dt=.01; % ms
+  t=0:(dt/1000):1/f; % one cycle
+  n=length(t);
+  dc_nonhomo=.1; 
+  ac=1;
+  I = max(0,ac*sin(2*pi*f*t)+dc_nonhomo);
+  Imean = sum( I ) / n;
+  dc_homo=Imean;
+
+  nf=length(fINPUT);
+  dc_homo = zeros(1,nf);
+  for i=1:nf
+    t=0:(dt/1000):1/fINPUT(i); % one cycle
+    I = max(0,ac*sin(2*pi*fINPUT(i)*t)+dc);
+    dc_homo(i) = sum(I)/length(t);
+  end
+  dc_homo
+  f=1:5; num_repetitions=1; gINPUT=[.01 .02 .06 .1];
+  [model,vary]=PrepProbeResonance(s_,'f',0,'dc',dc_homo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+  [dat1,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
+  [model,vary]=PrepProbeResonance(s_,'f',f,'dc',dc_nonhomo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+  [dat2,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
+  for i=1:4,mean(dat1(i).model.fixed_variables.E_s(:)),end
+  for i=1:4,mean(dat2(i).model.fixed_variables.E_s(:)),end
+end
 
 % set amplitude of network input
 gINPUT=5;
@@ -419,7 +617,7 @@ legend(cellfun(@(x)['gINPUT=' num2str(x)],num2cell(gINPUT),'uni',0));
 plottype='mean-input-strength'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f1-%g-%gHz_f2-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f1(1),f1(end),f2(1),f2(end),plottype),'-djpeg');
 
 % Plot rastergrams for all experiment 3 sims
-PlotData(data,'variable',plot_var,'plot_type','rastergram');
+PlotData(data,'variable','v','plot_type','rastergram');
 plottype='rastergram'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f1-%g-%gHz_f2-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f1(1),f1(end),f2(1),f2(end),plottype),'-djpeg');
 
 % for each gINPUT:
@@ -513,3 +711,42 @@ save(outfile,'stats_f0','stats_fc','stats','E1_Imean','E2_Imean','f1','f2','gINP
 % ------------------------------------
 
 toc(tstart);
+
+% % Calculate instantaneous firing rates
+% dat=data1(end);
+% t=dat.time;
+% V=dat.E_v;
+% raster=computeRaster(t,V);
+%   % raster(:,1) -> spike times
+%   % raster(:,2) -> cell index for each spike
+% kwidth=1; % ms
+% Ts=1; % ms, effective time step at which to perform regression
+% ncells=size(V,2);
+% ntimes=length(0:Ts:max(t));
+% inst_rates=zeros(ntimes,ncells);
+% tic
+% for i=1:ncells
+%   [inst_rate,time]=NWgaussKernelRegr(t,raster,i,kwidth,Ts);
+%   inst_rates(:,i)=inst_rate;
+% end
+% toc
+% % calculate instantaneous population firing rate
+% pop=unique(raster(:,2));
+% [inst_pop_rate,time]=NWgaussKernelRegr(t,raster,pop,kwidth,Ts);
+% figure; plot(time,inst_pop_rate)
+% 
+% % Calculate pairwise cross correlations
+% maxlag_time=10; % ms
+% maxlags=maxlag_time/(time(2)-time(1));
+% xcorrs=nan(ncells,ncells);
+% for i=1:ncells
+%   xi=inst_rates(:,i);
+%   for j=1:ncells
+%     if j>=i, continue; end % exclude upper triangular matrix
+%     xj=inst_rates(:,j);
+%     [xc,lags]=xcov(xi,xj,maxlags,'coeff');
+%     % take sum over the positive part of the curve
+%     xcorrs(i,j)=sum(xc(xc>0)); %mean(xc);
+%   end
+% end
+% xcorr_pop_avg=nanmean(xcorrs(:));

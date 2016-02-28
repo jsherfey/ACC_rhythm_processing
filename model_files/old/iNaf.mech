@@ -1,0 +1,26 @@
+% iNaf in Poirazi 2013; Na in Durstewitz & Gabriel 2007
+
+% parameters
+gNaf=100; ENaf=55; IC=.1; IC_noise=0;
+
+% functions
+ma(X)=(-.2816*(X+28))./(-1+exp((-X+28)/9.3))
+mb(X)=(.2464*(X+1))./(-1+exp((X+1)/6))
+minf(X)=ma(X)./(ma(X)+mb(X))
+mtau(X)=1./(ma(X)+mb(X))
+ha(X)=.098*exp(-(X+43.1)/20)
+hb(X)=1.4./(1+exp(-(X+13.1)/10))
+hinf(X)=ha(X)./(ha(X)+hb(X))
+htau(X)=1./(ha(X)+hb(X))
+
+% ODEs and ICs
+m'=(minf(X)-m)./mtau(X)
+h'=(hinf(X)-h)./htau(X)
+m(0)=IC+IC_noise.*rand(Npop,1)
+h(0)=IC+IC_noise.*rand(Npop,1)
+INaf(X,m,h)=gNaf.*m.^3.*h.*(X-ENaf)
+
+% linkers
+@current += -INaf(X,m,h)
+
+

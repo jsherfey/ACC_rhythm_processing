@@ -1,0 +1,24 @@
+% h-current
+% Parameters
+gh = [0.002]
+Eh = [-10]
+K = [10]
+vhalf = [-90]
+IC = [0]
+IC_noise = [0]
+
+% Functions 
+ninf(X) = 1-(1./(1+exp((vhalf-X)/K)))
+%taun(X) = (X>-10).*(1) + (X<-10).*(2*(1./(exp((X+145)/-17.5)+exp((X+16.8)/16.5))+10)) % from Papoutsi
+%taun(X) = 1*(exp(0.033*(X+75))./(0.011*(1+exp(0.083*(X+75))))) % from Horacio
+%taun(X) = 100;
+taun(X) = 1.5*(exp(0.033*(X+75))./(0.011*(1+exp(0.083*(X+75)))));
+ih(X,n) = gh*n.*(X-Eh)
+
+% ODEs and ICs 
+n' = (ninf(X)-n)./taun(X)
+n(0) = IC+IC_noise.*rand(Npop,1)
+ 
+% Linkers
+@current += -ih(X,n)
+ 

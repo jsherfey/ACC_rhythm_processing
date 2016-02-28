@@ -1,26 +1,51 @@
-function input=get_input(type,ncells,T,f,dc,ac,tau,xc,baseline,phase)
-% inputs:
-% - type {'sin'}
+function input=get_input(type,ncells,T,f,dc,ac,tau,conn,baseline,phase,kick)
+% input=get_input(type,ncells,T,f,dc,ac,tau,conn,baseline,phase)
+% arguments:
+% - type {'poisson','sin','rectified_sin'}
 % - ncells: size of population
 % - T: full time vector [ms] [time x 1]
 % - f: oscillation frequency [Hz]
+% - dc
+% - ac
+% - tau
+% - conn [1 x num_cells], input connectivity
+% - baseline
 % - phase: phase offset [radians]
+% - kick
 % 
-% example:
+% Example: simple rectified sin (generates "injected current")
 % type='rectified_sin';
 % ncells=1; % pop size
-% T=0:.01:1000; % ms
+% T=(0:.01:1000)'; % ms
 % f=5; % Hz
-% phase=pi; % radians
-% I=get_input(type,ncells,T,f,phase);
+% I=get_input(type,ncells,T,f);
 % figure; plot(T,I);
 % 
-% s=get_input('poisson',8,T,35,0,1,2,.25,.1,0);
+% % Poisson examples (generates "poisson-based time-varying conductance s(t)")
+% % Example: Baseline activity and AC everywhere
+% T=(0:.01:1000)'; % ms
+% N=8; f=35; dc=0; ac=1; tau=2; conn=ones(1,N); baseline=.1; phase=0;
+% s=get_input('poisson',N,T,f,dc,ac,tau,conn,baseline,phase);
+% PlotData(s);
+% % Example: Baseline activity everywhere with restricted AC
+% N=4; f=35; dc=0; ac=1; tau=2; conn=[1 1 0 0]; baseline=.1; phase=0;
+% s=get_input('poisson',N,T,f,dc,ac,tau,conn,baseline,phase);
+% PlotData(s);
+% % Example: No baseline activity with restricted DC + AC
+% N=4; f=35; dc=.1; ac=1; tau=2; conn=[1 1 0 0]; baseline=0; phase=0;
+% s=get_input('poisson',N,T,f,dc,ac,tau,conn,baseline,phase);
+% PlotData(s);
+% 
+% See also: getGenExtPoissonTotalGating
+
+% Notes on Salva's Poisson parameters for PFC inputs to MSN network:
+% https://mail.google.com/mail/u/0/#inbox/152ec80bc9304667
 
 % default inputs
+if nargin<11, kick=1; end
 if nargin<10, phase=0; end
 if nargin<9, baseline=.1; end % kHz
-if nargin<8, xc=.5; end
+% if nargin<8, conn=ones(1,ncells); end
 if nargin<7, tau=2; end % ms
 if nargin<6, ac=1; end % kHz (equivalent to 1000 inputs at 1Hz)
 if nargin<5, dc=0; end % kHz
@@ -28,6 +53,7 @@ if nargin<4, f=10; end % Hz
 if nargin<3, T=(0:.01:1000)'; end % ms
 if nargin<2, ncells=1; end
 if nargin<1 || ~ischar(type), type='sin'; end
+if nargin<8 || isempty(conn), conn=ones(1,ncells); end
 
 % check time dimensions: should be [T] = time x 1
 if size(T,1)<size(T,2)
@@ -65,50 +91,33 @@ switch type
     dt=T(2)-T(1);
     interval=T(end)-T(1);
     latency=.1; 
-    kick=1; 
     fspread=.03; 
     consigma=.001;
-    s=getGenExtPoissonTotalGating(on,off,latency,f/1000,fspread,phase,consigma,baseline,dc,ac,tau,kick,ncells,interval,dt,xc);
+    s=getGenExtPoissonTotalGating(on,off,latency,f/1000,fspread,phase,consigma,baseline,dc,ac,tau,kick,ncells,interval,dt,conn');
     input=s';
 end
 
-%{
-kick=.1;
-%f=10; % Hz
-%phase=0; % degrees?
-if f==0
-  % generate homogeneous (DC) spikes
-  spikes=poissrnd(dc*dt,[ntime ncells]); % [time x cells x inputs]
-else
-  % conductance decay time
-  %tau=2/1000; % ms, AMPA
-  % parameters of time-varying poisson rate      
-  %dc=.05; % Hz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
-  %ac=1; % Hz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
-  % define AC component
-  wave=sin(2*pi*f*T+2*pi*phase);    
-  % convert [-1,1] to [0,1]
-  %modulation=(1+wave)/2;
-  modulation=max(wave,0);
-  % define time-varying poisson rate
-  lambda=dc+ac*modulation;
-  % copy rate for each source (input) and target (cell)
-  lambda=repmat(lambda,[1 ncells]); % [time x cells]
-  % generate nonhomogeneous (DC+AC) spikes
-  spikes=poissrnd(lambda); % [time x cells x inputs]
-end
-% generate spike-triggered conductance changes (i.e., exponential response to poisson inputs)
-S=zeros(ntime,ncells);
-for k=2:ntime
-  % conductance decay
-  S(k,:)=S(k-1,:)-dt*S(k-1,:)/tau;
-  for i=1:ncells
-    nspikes=spikes(k,i);
-    if nspikes>=1
-      % add a kick for each spike
-      S(k,i)=S(k,i)+(kick*nspikes)*(1-S(k,i));
-    end
-  end
-end
-input=S;
-%}
+% Note on getGenExtPoissonTotalGating arguments:
+% rows: simultaneous inputs
+% cols: different epochs
+% 
+% Npop=5;
+% dt=.01;
+% tOn_pfcInp = 0;               % in ms
+% tOff_pfcInp = 1000;           % in ms
+% latency_pfcInp = [.1;.1];           % in ms (rise and decay time constant for the input)
+% freq_pfcInp = [.02;.04];              % kHz, sequence of frequencies, e.g. 0 kHz only DC component, 10 Hz modulation (alpha) or 25 Hz (beta) or 35 Hz (low gamma), or first alpha, then beta/gamma, etc.
+% normFreqSigma_pfcInp = [0.03;.03];  % normalized Freq sigma.
+% phase_pfcInp = [0;0];             % useful to introduce a phase lag between different components
+% widthSigma_pfcInp = 0.001;    % 0.001 represents an abrupt connectivity transition (in contrast to 0.1; it only applies to dc+ac not the baseline)
+% rate_pfcInp_baseline = .1;     % kHz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
+% rate_pfcInp_dc = [1;1];           % kHz, Poisson spike rate (e.g., 1 kHz may correspond to 1000 external neurons firing at 1 Hz)
+% rate_pfcInp_ac = [5;5];
+% tau_pfcInp = 2;               % ms, exponential decay time constant (AMPA)
+% kick_pfcInp = 1;              % conductance increase after a spike
+% interval = 2000;              % interval (ms)
+% g_pfcInp = 0;                 % mS/cm^2, external conductance (rate normalized)
+% E_pfcInp = 0;                 % reversal potential (mV; AMPA)
+% x_c=[.25;.75];
+% S = getGenExtPoissonTotalGating(tOn_pfcInp,tOff_pfcInp,latency_pfcInp,freq_pfcInp,normFreqSigma_pfcInp,phase_pfcInp,widthSigma_pfcInp,rate_pfcInp_baseline,rate_pfcInp_dc,rate_pfcInp_ac,tau_pfcInp,kick_pfcInp,Npop,interval,dt,x_c);
+% PlotData(S','plot_type','waveform','variable','data');

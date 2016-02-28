@@ -1,0 +1,16 @@
+% Calcium dynamics (buffer)
+% Parameters
+depth = [0.1]
+taurca = [28.5714] % [200]
+cainf = [5e-05]
+FARADAY = [96520]
+IC_noise = [0]
+IC=[.00005]
+
+% ODEs and ICs
+cai' = max(0,-(10000)*@ica/(2*FARADAY*depth))/18+(cainf-cai)/taurca; %*7;
+cai(0) = IC+IC_noise.*rand(1,Npop)
+ 
+% Linkers
+@cai += cai
+

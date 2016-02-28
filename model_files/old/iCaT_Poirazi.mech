@@ -1,0 +1,35 @@
+% Low-threshold calcium channel
+% Parameters
+gCaT = [0]
+ECa = [126.1]
+zetam = [-3]
+zetah = [5.2]
+vhalfm = [-36]
+vhalfh = [-68]
+tm0 = [1.5]
+th0 = [10]
+celsius = [34]
+m_IC = [0]
+h_IC = [1]
+IC_noise = [0]
+
+% Functions
+alpm(X) = exp(1e-3*zetam*(X-vhalfm)*9.648e4/(8.315*(273.16+celsius)))
+alph(X) = exp(1e-3*zetah*(X-vhalfh)*9.648e4/(8.315*(273.16+celsius)))
+minf(X) = 1./(1+alpm(X))
+hinf(X) = 1./(1+alph(X))
+ICa(X,m,h) = gCaT*m.^2.*h.*(X-ECa)
+
+% ODEs and ICs 
+m' = (minf(X)-m)/tm0;
+m(0) = m_IC+IC_noise.*rand(1,Npop)
+h' = (hinf(X)-h)/th0;
+h(0) = h_IC+IC_noise.*rand(1,Npop)
+
+% Linkers
+@current += -ICa(X,m,h)
+@ica += ICa(X,m,h)
+
+% References: 
+% Poirazi, Panayiota, Terrence Brannon, and Bartlett W. Mel. "Online supplement: about the model." Neuron 37 (2003): 977-987.
+

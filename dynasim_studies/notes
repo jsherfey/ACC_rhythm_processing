@@ -1,0 +1,18 @@
+------------
+27-Feb-2016
+------------
+Developing cell models of ACC neuron classes:
+script: ~/projects/ACC_rhythm_processing/dynasim_drivers/ACd_cell_models.m
+outputs: ~/projects/ACC_rhythm_processing/dynasim_studies/cells/test_sweeps
+
+
+
+% long AHP
+data=SimulateModel('dV/dt=@current-.4*(V+70)+I; {RSiNaF,RSiKDR,iHVA,iAHP,CaBuffer}; V(0)=-65;','vary',{'','I',1;'','gHVA',[0 .025 .05 .1];'','gAHP',[0 10 20]},'tspan',[0 1000]);
+data=SimulateModel('dV/dt=@current-.4*(V+70)+I; {RSiNaF,RSiKDR,iCaH,iKCa,CaBuffer}; V(0)=-65;','vary',{'','I',[1 2 10];'','gKCa',1},'tspan',[0 500]);
+data=SimulateModel('dV/dt=@current-.4*(V+70)+I; {RSiNaF,RSiKDR,iCaT,iKCa,CaBuffer}; V(0)=-65;','vary',{'','I',0;'','gKCa',0:5:20},'tspan',[0 500]);
+PlotData(data)
+
+
+
+
