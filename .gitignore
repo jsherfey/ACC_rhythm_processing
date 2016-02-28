@@ -5,4 +5,4 @@ params.mat
 solve/
 solve/*
 solve/**
-dynasim_studies/
+data/
