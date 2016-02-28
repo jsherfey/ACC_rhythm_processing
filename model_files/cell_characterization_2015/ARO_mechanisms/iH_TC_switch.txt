@@ -1,0 +1,32 @@
+% iH_TC_switch: Hyperpolarization-activated H-current, Hodgkin-Huxley-style, for generic thalamocortical relay cells, with step changing gGABAA to simulate propofol
+% Reference: "Ching, S., Cimenser, A., Purdon, P. L., Brown, E. N., & Kopell, N. J. (2010). Thalamocortical model for a propofol-induced alpha-rhythm associated with loss of consciousness. Proceedings of the National Academy of Sciences, 107(52), 22665-22670. doi:10.1073/pnas.1017069108"
+% Requires: calcium concentration "Ca_TC" (exposed by "Ca_TC" mechanism)
+% Tags: calcium, current, intrinsic, thalamus
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Parameters
+gH1 = [0.025] % mS/cm^2
+gH2 = [0.005]
+EH = [-43]   % mV
+onset1 = [0]
+onset2 = [4000]
+offset = inf
+
+% Functions
+tauS(V) = 20 + 1000./(exp((V+71.5)./14.2)+exp((-(V+89))./11.6))
+Hinf(V) = 1./(1+exp((V+75)./5.5))
+aH(V) = Hinf(V)./tauS(V)
+bH(V) = (1-Hinf(V))./tauS(V)
+gH(t) = gH1*((t >= onset1) & (t < onset2)) + gH2*((t >= onset2) & (t < offset))
+IH_TC_switch(V,Cone,Pzero,OPENone,Ca_TC,t) = gH(t).*(OPENone+2.*(1-Cone-OPENone)).*(V-EH)
+
+% ODEs
+Cone' = bH(V).*OPENone - aH(V).*Cone;
+Cone(0) = 0.5.*rand(Npop,1);
+Pzero' = 0.0004.*(1-Pzero) - 0.0004.*((Ca_TC./0.002).^4).*Pzero;
+Pzero(0) = 0.5.*rand(Npop,1);
+% AES: change this
+OPENone' = 0.001.*(1-Cone-OPENone) - 0.001.*((Pzero)./0.01).*OPENone;
+OPENone(0) = 0.*rand(Npop,1);
+
+% Interface
+current => -IH_TC_switch(V,Cone,Pzero,OPENone,Ca_TC,t)

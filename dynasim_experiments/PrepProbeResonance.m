@@ -5,7 +5,7 @@ function [model,vary]=PrepProbeResonance(model,varargin)
 % response. The input may be a direct current injection (sinusoid, noisy 
 % sinusoid, rectified sinusoid, or gaussian smoothed pulses) or 
 % nonhomogeneous Poisson process filtered through double-exponential AMPA synapses.
-% see also: ProbeTwoRhythms
+% see also: ProbeTwoRhythms, CalcResonanceStats
 
 % Check options
 options=CheckOptions(varargin,{...
@@ -54,7 +54,7 @@ for i=1:npops
         end
       end
       % add AMPA synapse for exponentially filtered modulated poisson process
-      s=sprintf('s=get_input(''%s'',Npop,T,f,dc,ac,tau,xc,baseline,phase); xc=.5; phase=0',options.input_type);
+      s=sprintf('s=get_input(''%s'',Npop,T,f,dc,ac,tau,ones(1,Npop),baseline,phase); phase=0',options.input_type);
       eqn_mods=sprintf('cat(ODE1,-gINPUT*s(k,:).*(X-0)+0*%g; %s)',sum(ID),s);
       modifications(end+1,:)={name,'equations',eqn_mods};
       for p=1:length(param_names)
@@ -99,7 +99,7 @@ model=ApplyModifications(model,modifications);
 %   realization_param=[options.target{1} '_realization'];
 %   freq_param=[options.target{1} '_f'];
 % 
-%   [stats,data]=CalcPopulationStats(data,...
+%   [stats,data]=CalcResonanceStats(data,...
 %     'sweep_parameter',freq_param,...       % max over f
 %     'repetition_parameter',realization_param,... % mean/std over realizations
 %     varargin{:});

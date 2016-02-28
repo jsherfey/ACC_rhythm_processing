@@ -1,0 +1,13 @@
+% Icosine(t) sinusoidal stimulus
+% This can change from one amplitude to a different one at a certain time
+% point 'onset2' if desired.
+cos_ampl1 = 2.5
+cos_ampl2 = 2.5
+cos_freq = 0.6
+onset1 = [0]
+onset2 = [4000]
+offset = inf
+
+Icosine(t) = cos_ampl1*cos(2*pi*cos_freq*t/1000).*((t >= onset1) & (t < onset2)) + cos_ampl2*cos(2*pi*cos_freq*t/1000).*((t >= onset2) & (t < offset))
+
+current => Icosine(t)

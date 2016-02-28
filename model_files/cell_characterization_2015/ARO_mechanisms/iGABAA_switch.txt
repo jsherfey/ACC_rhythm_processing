@@ -1,0 +1,39 @@
+% iGABAA_switch: synaptic GABA-A-ergic inhibitory current
+% Reference: "Ching, S., Cimenser, A., Purdon, P. L., Brown, E. N., & Kopell, N. J. (2010). Thalamocortical model for a propofol-induced alpha-rhythm associated with loss of consciousness. Proceedings of the National Academy of Sciences, 107(52), 22665-22670. doi:10.1073/pnas.1017069108"
+% Tags: synapse, connection
+%
+% This was built using "iSYN.txt" as a template.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Parameters
+% 'gGABAA_base' is before-propofol. The time constant has it automatically applied anyways
+spm1 = 1; % stands for "synaptic propofol multipler" of both gGABAA_base and tauGA
+spm2 = 1; % 'spm2' is if you want to change the spm factor in the middle of the simulation
+gGABAA_base = 0.1;
+tauGABAA_base = 5; % ms
+EGABAA = [-80];
+
+onset1 = [0]
+onset2 = [4000] % in ms
+offset = inf
+
+IC = [0.1];
+IC_noise = [0.1];
+
+% Connectivity
+width = inf   % fanout (connection distance)
+Nmax = max(Npre,Npost)
+srcpos = linspace(1,Nmax,Npre)'*ones(1,Npost)      % linear position (sources)
+dstpos = (linspace(1,Nmax,Npost)'*ones(1,Npre))'   % linear position (targets)
+netcon = (abs(srcpos-dstpos)<=width)'              % adjacency matrix (connect elements closer than width)
+
+% Functions
+IGABAA_switch(IN,s,t) = gGABAA(t).*(netcon*s).*(IN-EGABAA)
+gGABAA(t) = gGABAA_base*spm1*((t >= onset1) & (t < onset2)) + gGABAA_base*spm2*((t >= onset2) & (t < offset))
+tauGABAA(t) = tauGABAA_base*spm1*((t >= onset1) & (t < onset2)) + tauGABAA_base*spm2*((t >= onset2) & (t < offset))
+
+% ODEs
+s' = 2.*(1 + tanh(IN./4)).*(1-s) - s./tauGABAA(t);
+s(0) = IC+IC_noise.*rand(Npre,1);
+
+% Interface
+current => -IGABAA_switch(OUT,s,t)

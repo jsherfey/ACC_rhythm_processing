@@ -1,0 +1,39 @@
+% iAMPA_PY_faux: derp
+% Reference: "Ching, S., Cimenser, A., Purdon, P. L., Brown, E. N., & Kopell, N. J. (2010). Thalamocortical model for a propofol-induced alpha-rhythm associated with loss of consciousness. Proceedings of the National Academy of Sciences, 107(52), 22665-22670. doi:10.1073/pnas.1017069108"
+% Tags: synapse, connection
+%
+% This was built using "iSYN.txt" as a template.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Parameters
+gAMPA = [0.1]
+EAMPA = [1]
+IC = [0.1]
+IC_noise = [0]
+tauAMPA = [2]
+PY_square_freq = [0.6] % make zero for always on
+PY_spiking_freq = [12]
+% make sure you do the math right! this is for 12 Hz spiking, 1 ms pulsewidth
+% 1/12 Hz = 0.0833 seconds, so 1 ms of that is 0.001 / 0.0833 = 0.012 or 1.2% of a cycle
+PY_spikewidth_dutycycle = [1.2]
+
+% Connectivity
+width = inf
+Nmax = max(Npre,Npost)
+srcpos = linspace(1,Nmax,Npre)'*ones(1,Npost)
+dstpos = (linspace(1,Nmax,Npost)'*ones(1,Npre))'
+netcon = (abs(srcpos-dstpos)<=width)'
+
+
+% Functions
+V_PY_faux(t) = -75 + (0.5*125 + 0.5*125 .* square(2.*pi.* PY_spiking_freq .* t./1000, PY_spikewidth_dutycycle)) .* (0.5 + 0.5.*square(2.*pi.* PY_square_freq .* t./1000))
+IAMPA_PY_faux(s,t) = gAMPA.*(netcon*s).*(V_PY_faux(t)-EAMPA)
+
+% ODEs
+% need to change V to IN bc synapse
+s' = 5.*(1 + tanh(V_PY_faux(t)./4)).*(1-s) - s./tauAMPA;
+s(0) = IC+IC_noise.*rand(Npre,1);
+
+% Interface
+current => -IAMPA_PY_faux(s,t)
+
+

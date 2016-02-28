@@ -1,0 +1,15 @@
+% Ca_TC: Calcium buffer concentration dynamics, for generic thalamocortical relay cells
+% Reference: "Ching, S., Cimenser, A., Purdon, P. L., Brown, E. N., & Kopell, N. J. (2010). Thalamocortical model for a propofol-induced alpha-rhythm associated with loss of consciousness. Proceedings of the National Academy of Sciences, 107(52), 22665-22670. doi:10.1073/pnas.1017069108"
+% Requires: calcium current "IT_TC" (exposed by "IT_TC" mechanism)
+% Exposes: calcium concentration "Ca_TC" for other mechanisms (e.g., required by "IT_TC" mechanism)
+% Tags: calcium, buffer, intrinsic, thalamus
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ODEs
+% AES: check to make sure that max works here the way it's supposed to
+Ca_TC' = max(((-10.*IT_TC)./(2.*96489)), 0) + (0.00024-Ca_TC)./5;
+Ca_TC(0) = 0.0001.*rand(Npop,1);
+% % debug
+% Ca_TC(0) = 0.0001.*ones(Npop,1);
+
+% Interface
+Ca_TC => Ca_TC(IT_TC)

@@ -63,9 +63,9 @@ for i=1:npops
   switch options.input_type
     case 'poisson'
       % add AMPA synapse for exponentially filtered modulated poisson process
-      s1=sprintf('s1=get_input(''%s'',Npop,T,f1,dc,ac,tau,xc1,baseline,phase1); xc1=.25; phase1=0',options.input_type);
-      s2=sprintf('s2=get_input(''%s'',Npop,T,f2,dc,ac,tau,xc2,baseline,phase2); xc2=.75; phase2=0',options.input_type);
-      eqn_mods=sprintf('cat(ODE1,-gINPUT*(K1.*s1(k,:)+K2.*s2(k,:)).*(X-0); %s; %s)',s1,s2);
+      s1=sprintf('s1=get_input(''%s'',Npop,T,f1,dc,ac,tau,K1,baseline,phase1); phase1=0',options.input_type);
+      s2=sprintf('s2=get_input(''%s'',Npop,T,f2,dc,ac,tau,K2,baseline,phase2); phase2=0',options.input_type);
+      eqn_mods=sprintf('cat(ODE1,-gINPUT*(s1(k,:)+s2(k,:)).*(X-0); %s; %s)',s1,s2);
       modifications(end+1,:)={name,'equations',eqn_mods};
       modifications(end+1,:)={name,'K1',K1};
       modifications(end+1,:)={name,'K2',K2};
@@ -116,8 +116,8 @@ model=ApplyModifications(model,modifications);
 %   dat1=SelectData(data,'roi',{variable,[1 ceil(N/2)]});
 %   dat2=SelectData(data,'roi',{variable,[ceil(N/2)+1 N]});
 %   repetition_parameter=[options.target{1} '_repetition'];
-%   stats(1)=CalcPopulationStats(dat1,'variable',variable,'repetition_parameter',repetition_parameter,varargin{:});
-%   stats(2)=CalcPopulationStats(dat2,'variable',variable,'repetition_parameter',repetition_parameter,varargin{:});  
+%   stats(1)=CalcResonanceStats(dat1,'variable',variable,'repetition_parameter',repetition_parameter,varargin{:});
+%   stats(2)=CalcResonanceStats(dat2,'variable',variable,'repetition_parameter',repetition_parameter,varargin{:});  
 %   clear dat1 dat2
 % end
 % 

@@ -1,0 +1,9 @@
+% Isquare(t): provides a square wave of pure current into the cell
+
+square_amp = [2]
+square_freq = [0.6]
+
+Isquare(t) = square_amp./2 + square_amp./2 .* square(2.*pi.*square_freq.*t./1000)
+
+current => Isquare(t)
+

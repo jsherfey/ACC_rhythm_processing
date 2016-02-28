@@ -1,0 +1,17 @@
+% taken from Rule sims
+gNap = [0.6]
+ENap = [55]
+napshift = [5]
+IC_noise=.1
+IC=.5
+
+alpha(V) = .001*exp((-85-V)/30)
+beta(V) = .0034./(exp((-17-V)/10)+1)
+minf(V) = 1./(1+exp(-(V+(55.7+napshift))/7.7))
+INap(V,h) = gNap*minf(V).^3.*h.*(V-ENap)
+ 
+hNap' = alpha(IN).*(1-hNap)-beta(IN).*hNap;
+hNap(0) = IC+IC_noise*rand(Npop,1)
+ 
+current => -INap(IN,hNap)
+ 

@@ -1,0 +1,31 @@
+% iAMPA: synaptic AMPAergic excitatory current
+% Reference: "Ching, S., Cimenser, A., Purdon, P. L., Brown, E. N., & Kopell, N. J. (2010). Thalamocortical model for a propofol-induced alpha-rhythm associated with loss of consciousness. Proceedings of the National Academy of Sciences, 107(52), 22665-22670. doi:10.1073/pnas.1017069108"
+% Tags: synapse, connection
+%
+% This was built using "iSYN.txt" as a template.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Parameters
+gAMPA = [0.4];
+EAMPA = [1];
+% EAMPA = [0];
+IC = [0.1];
+IC_noise = [0];
+tauAMPA = [2];
+
+% Connectivity
+width = inf   % fanout (connection distance)
+Nmax = max(Npre,Npost)
+srcpos = linspace(1,Nmax,Npre)'*ones(1,Npost)      % linear position (sources)
+dstpos = (linspace(1,Nmax,Npost)'*ones(1,Npre))'   % linear position (targets)
+netcon = (abs(srcpos-dstpos)<=width)'              % adjacency matrix (connect elements closer than width)
+
+% Functions
+IAMPA(IN,s) = gAMPA.*(netcon*s).*(IN-EAMPA)
+
+% ODEs
+% need to change V to IN bc synapse
+s' = 5.*(1 + tanh(IN./4)).*(1-s) - s./tauAMPA;
+s(0) = IC+IC_noise.*rand(Npre,1);
+
+% Interface
+current => -IAMPA(OUT,s)

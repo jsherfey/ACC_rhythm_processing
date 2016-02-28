@@ -1,0 +1,20 @@
+thresh = [0]
+isi = [1000]
+nsteps = [2]
+steptime = [400]
+stepsize = [2.5]
+membranearea = [1500]
+nsections = [4]
+tonictime = [60000]
+bltime = [100]
+ramprate = [5]
+depol=1
+stepreset=0
+
+I = getStepProtocolStim(dt,isi,nsteps,steptime,stepsize,membranearea,nsections,tonictime,bltime,timelimits,ramprate,depol,stepreset)
+
+Iinj(V,t) = I(max(1,ceil(t/dt)))*(t<(bltime+isi*nsteps*nsections*2))+holdstim(V,I,ceil(t/dt),thresh,isi,nsteps,nsections,dt,bltime)*(t>=(bltime+isi*nsteps*nsections*2))
+%Iinj(V,t) = I(max(1,ceil(t/dt)))*(t<(bltime+isi*nsteps*nsections*2))+double(feval('holdstim',V,I,ceil(t/dt),thresh,isi,nsteps,nsections,dt,bltime))*(t>=(bltime+isi*nsteps*nsections*2))
+
+current => Iinj(IN,t)
+
