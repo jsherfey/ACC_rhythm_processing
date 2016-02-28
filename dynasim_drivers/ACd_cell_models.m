@@ -87,7 +87,7 @@ compile_flag=0; % whether to compile the simulation
 verbose_flag=1; % whether to display log information
 downsample_factor=10;
 solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor};
-save_data_flag=0; save_plots_flag=0; plot_options={'visible','off'};
+save_data_flag=1; save_plots_flag=1; plot_options={'visible','off'};
 
 % Available mechanisms:
 % Sodium:     (iNaF,iNaP, RSiNaF)
@@ -95,18 +95,30 @@ save_data_flag=0; save_plots_flag=0; plot_options={'visible','off'};
 % Calcium:    (iHVA,iCaH,iCaT,CaBuffer)
 % Nonspecific: (ih,ileak)
 
+% long AHP
+mechanisms='{RSiNaF,RSiKDR,iHVA,iAHP,CaBuffer,ileak}';
+vary={'gHVA',[0 .025 .05 .1];'gAHP',[0 10 20]};
+mechanisms='{RSiNaF,RSiKDR,iCaH,iKCa,CaBuffer,ileak}';
+vary={'gKCa',1;'Iinj',[1 2 10]};
+mechanisms='{RSiNaF,RSiKDR,iCaT,iKCa,CaBuffer,ileak}';
+vary={'gKCa',0:5:20;'Iinj',[0]};
 mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-mods={'gleak',.15;'gh',.2;'gCaT',2;'gKCa',.2;'Eleak',-75;'noise',5};
+mods={'gCaT',2;'gKCa',.2;'gleak',.4;'Eleak',-75;'noise',0};
 vary={'gh',[0 1 10 20 30 50];'Iinj',[5 7.5 10]};
 
+mechanisms='{iNaF,iKDR}'; mods={'gNaF',50;'gKDR',4;'Cm',1.2}; vary={'Iinj',-10:5:30};
+mechanisms='{iNaF,iKDR,ileak}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:5:30};
+mechanisms='{RSiNaF,RSiKDR}'; mods={'gNaF',200;'gKDR',20;'Cm',1.2}; vary={'Iinj',-10:5:30};
+mechanisms='{RSiNaF,RSiKDR,ileak}'; mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:5:30};
+
 % generic execution
-eqns=['dV/dt=(@current+Iinj*(t>100))/Cm; Cm=1.2; Iinj=10; V(0)=-75;' mechanisms];
+eqns=['dV/dt=(@current+Iinj*(t>100)+noise*rand(1,Npop))/Cm; V(0)=-75; Cm=1.2; Iinj=10; noise=0;' mechanisms];
 model=ApplyModifications(eqns,mods);
 prefix=['cell_' get_strID(mechanisms,'mech')];
 study_dir=fullfile(rootoutdir,'cells','test_sweeps',get_strID(mechanisms,'mech'),[get_strID(mods,'mods') '__' get_strID(vary,'vary')]);
 if save_plots_flag==1, plot_functions=@PlotData; else plot_functions=[]; end
 data=SimulateModel(model,'vary',vary,solver_options{:},'plot_functions',plot_functions,'plot_options',plot_options,'study_dir',study_dir,'prefix',prefix,'save_results_flag',save_plots_flag,'save_data_flag',save_data_flag);
-PlotData(data); file=fullfile(study_dir,'waveforms.jpg'); print(gcf,file,'-djpeg');
+PlotData(data,'ylim',[-100 50]); file=fullfile(study_dir,'waveforms.jpg'); print(gcf,file,'-djpeg');
 
 if 0 % qualitatively assess a particular model
   m=data(5).model; amps=-50:50:400; I=1:10;
