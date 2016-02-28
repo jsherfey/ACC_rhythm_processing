@@ -87,7 +87,7 @@ compile_flag=0; % whether to compile the simulation
 verbose_flag=1; % whether to display log information
 downsample_factor=10;
 solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor};
-save_data_flag=1; save_plots_flag=1; plot_options={'visible','off'};
+save_data_flag=0; save_plots_flag=0; plot_options={'visible','off'};
 
 % Available mechanisms:
 % Sodium:     (iNaF,iNaP, RSiNaF)
@@ -96,7 +96,7 @@ save_data_flag=1; save_plots_flag=1; plot_options={'visible','off'};
 % Nonspecific: (ih,ileak)
 
 mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-mods={'gleak',.15;'gh',.2;'gCaT',1.5;'gKCa',.2;'Eleak',-75;'noise',5};
+mods={'gleak',.15;'gh',.2;'gCaT',2;'gKCa',.2;'Eleak',-75;'noise',5};
 vary={'gh',[0 1 10 20 30 50];'Iinj',[5 7.5 10]};
 
 % generic execution
