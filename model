@@ -1,0 +1,95 @@
+function [T,pop1_V,pop1_iNaF_m,pop1_iNaF_h,pop1_iKDR_n,pop1_CaBuffer_cai,pop1_iCaT_m,pop1_iCaT_h,pop1_iAHP_m,pop1_CaBuffer_CaRest]=solve_ode
+% ------------------------------------------------------------
+% Parameters:
+% ------------------------------------------------------------
+p=load('params.mat','p'); p=p.p;
+downsample_factor=p.downsample_factor;
+dt=p.dt;
+T=(p.tspan(1):dt:p.tspan(2))';
+ntime=length(T);
+nsamp=length(1:downsample_factor:ntime);
+% ------------------------------------------------------------
+% Fixed variables:
+% ------------------------------------------------------------
+pop1_CaBuffer_CaRest =  50/1000;
+% ------------------------------------------------------------
+% Initial conditions:
+% ------------------------------------------------------------
+% seed the random number generator
+rng(p.random_seed);
+t=0; k=1;
+% STATE_VARIABLES:
+pop1_V_last = -65*ones(1,p.pop1_Npop);
+pop1_V = zeros(nsamp,p.pop1_Npop);
+  pop1_V(1,:) = pop1_V_last;
+pop1_iNaF_m_last = p.pop1_iNaF_IC+p.pop1_iNaF_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iNaF_m = zeros(nsamp,p.pop1_Npop);
+  pop1_iNaF_m(1,:) = pop1_iNaF_m_last;
+pop1_iNaF_h_last = p.pop1_iNaF_IC+p.pop1_iNaF_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iNaF_h = zeros(nsamp,p.pop1_Npop);
+  pop1_iNaF_h(1,:) = pop1_iNaF_h_last;
+pop1_iKDR_n_last = p.pop1_iKDR_IC+p.pop1_iKDR_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iKDR_n = zeros(nsamp,p.pop1_Npop);
+  pop1_iKDR_n(1,:) = pop1_iKDR_n_last;
+pop1_CaBuffer_cai_last =  p.pop1_CaBuffer_IC+p.pop1_CaBuffer_IC_noise*rand(1,p.pop1_Npop);
+pop1_CaBuffer_cai = zeros(nsamp,p.pop1_Npop);
+  pop1_CaBuffer_cai(1,:) = pop1_CaBuffer_cai_last;
+pop1_iCaT_m_last = p.pop1_iCaT_IC+p.pop1_iCaT_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iCaT_m = zeros(nsamp,p.pop1_Npop);
+  pop1_iCaT_m(1,:) = pop1_iCaT_m_last;
+pop1_iCaT_h_last = p.pop1_iCaT_IC+p.pop1_iCaT_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iCaT_h = zeros(nsamp,p.pop1_Npop);
+  pop1_iCaT_h(1,:) = pop1_iCaT_h_last;
+pop1_iAHP_m_last =  p.pop1_iAHP_IC+p.pop1_iAHP_IC_noise.*rand(1,p.pop1_Npop);
+pop1_iAHP_m = zeros(nsamp,p.pop1_Npop);
+  pop1_iAHP_m(1,:) = pop1_iAHP_m_last;
+% ###########################################################
+% Numerical integration:
+% ###########################################################
+n=2;
+for k=2:ntime
+  t=T(k-1);
+  pop1_V_k1=(((-((p.pop1_iNaF_gNaF.*pop1_iNaF_m_last.^3.*pop1_iNaF_h_last.*(pop1_V_last-p.pop1_iNaF_ENa))))+((-((p.pop1_iKDR_gKDR.*pop1_iKDR_n_last.^4.*(pop1_V_last-p.pop1_iKDR_EK))))+((-((p.pop1_ileak_gleak.*(pop1_V_last-p.pop1_ileak_Eleak))))+((-(( p.pop1_iCaT_gCaT.*pop1_iCaT_m_last.^2.*pop1_iCaT_h_last.*(pop1_V_last-p.pop1_iCaT_ECa))))+((-(( p.pop1_iAHP_gAHP*pop1_iAHP_m_last.^2.*(pop1_V_last-p.pop1_iAHP_EK)))))))))+p.pop1_Iinj*(t>100))/p.pop1_Cm;
+  pop1_iNaF_m_k1=((((((-.2816*(pop1_V_last+28))./(-1+exp(-(pop1_V_last+28)/9.3))))./((((-.2816*(pop1_V_last+28))./(-1+exp(-(pop1_V_last+28)/9.3))))+(((.2464*(pop1_V_last+1))./(-1+exp((pop1_V_last+1)/6)))))))-pop1_iNaF_m_last)./((1./((((-.2816*(pop1_V_last+28))./(-1+exp(-(pop1_V_last+28)/9.3))))+(((.2464*(pop1_V_last+1))./(-1+exp((pop1_V_last+1)/6)))))));
+  pop1_iNaF_h_k1=(((((.098*exp(-(pop1_V_last+43.1)/20)))./(((.098*exp(-(pop1_V_last+43.1)/20)))+((1.4./(1+exp(-(pop1_V_last+13.1)/10)))))))-pop1_iNaF_h_last)./((1./(((.098*exp(-(pop1_V_last+43.1)/20)))+((1.4./(1+exp(-(pop1_V_last+13.1)/10)))))));
+  pop1_iKDR_n_k1=(((((3*(-.018*(pop1_V_last-13)./(-1+exp(-(pop1_V_last-13)/25)))))./(((3*(-.018*(pop1_V_last-13)./(-1+exp(-(pop1_V_last-13)/25)))))+((.0054*(pop1_V_last-23)./(-1+exp((pop1_V_last-23)/12)))))))-pop1_iKDR_n_last)./((1./(((3*(-.018*(pop1_V_last-13)./(-1+exp(-(pop1_V_last-13)/25)))))+((.0054*(pop1_V_last-23)./(-1+exp((pop1_V_last-23)/12)))))));
+  pop1_CaBuffer_cai_k1= -(((( p.pop1_iCaT_gCaT.*pop1_iCaT_m_last.^2.*pop1_iCaT_h_last.*(pop1_V_last-p.pop1_iCaT_ECa)))))./p.pop1_CaBuffer_taurCa+(pop1_CaBuffer_CaRest-pop1_CaBuffer_cai_last)./p.pop1_CaBuffer_taudCa;
+  pop1_iCaT_m_k1=(((1./(1+exp((-pop1_V_last-56)/6.2))))-pop1_iCaT_m_last)./((0.204+0.333./(exp((pop1_V_last+15.8)/18.2)+exp((-pop1_V_last-131)/16.7))));
+  pop1_iCaT_h_k1=(((1./(1+exp((pop1_V_last+80)/4))))-pop1_iCaT_h_last)./(((pop1_V_last<-81).*(0.333*exp((pop1_V_last+466)/66.6))+(pop1_V_last>=-81).*(9.32+0.333*exp((-pop1_V_last-21)/10.5))));
+  pop1_iAHP_m_k1= ((( (( p.pop1_iAHP_aAHP_scale*1.25*100*pop1_CaBuffer_cai_last.^2))./((( p.pop1_iAHP_aAHP_scale*1.25*100*pop1_CaBuffer_cai_last.^2))+p.pop1_iAHP_b)))-pop1_iAHP_m_last)./(( 1000./(( p.pop1_iAHP_aAHP_scale*1.25*100*pop1_CaBuffer_cai_last.^2))+p.pop1_iAHP_b));
+  t=t+.5*dt;
+  pop1_V_k2=(((-((p.pop1_iNaF_gNaF.*((pop1_iNaF_m_last+.5*dt*pop1_iNaF_m_k1)).^3.*((pop1_iNaF_h_last+.5*dt*pop1_iNaF_h_k1)).*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_iNaF_ENa))))+((-((p.pop1_iKDR_gKDR.*((pop1_iKDR_n_last+.5*dt*pop1_iKDR_n_k1)).^4.*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_iKDR_EK))))+((-((p.pop1_ileak_gleak.*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_ileak_Eleak))))+((-(( p.pop1_iCaT_gCaT.*((pop1_iCaT_m_last+.5*dt*pop1_iCaT_m_k1)).^2.*((pop1_iCaT_h_last+.5*dt*pop1_iCaT_h_k1)).*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_iCaT_ECa))))+((-(( p.pop1_iAHP_gAHP*((pop1_iAHP_m_last+.5*dt*pop1_iAHP_m_k1)).^2.*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_iAHP_EK)))))))))+p.pop1_Iinj*(t>100))/p.pop1_Cm;
+  pop1_iNaF_m_k2=((((((-.2816*(((pop1_V_last+.5*dt*pop1_V_k1))+28))./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+28)/9.3))))./((((-.2816*(((pop1_V_last+.5*dt*pop1_V_k1))+28))./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+28)/9.3))))+(((.2464*(((pop1_V_last+.5*dt*pop1_V_k1))+1))./(-1+exp((((pop1_V_last+.5*dt*pop1_V_k1))+1)/6)))))))-((pop1_iNaF_m_last+.5*dt*pop1_iNaF_m_k1)))./((1./((((-.2816*(((pop1_V_last+.5*dt*pop1_V_k1))+28))./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+28)/9.3))))+(((.2464*(((pop1_V_last+.5*dt*pop1_V_k1))+1))./(-1+exp((((pop1_V_last+.5*dt*pop1_V_k1))+1)/6)))))));
+  pop1_iNaF_h_k2=(((((.098*exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+43.1)/20)))./(((.098*exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+43.1)/20)))+((1.4./(1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+13.1)/10)))))))-((pop1_iNaF_h_last+.5*dt*pop1_iNaF_h_k1)))./((1./(((.098*exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+43.1)/20)))+((1.4./(1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))+13.1)/10)))))));
+  pop1_iKDR_n_k2=(((((3*(-.018*(((pop1_V_last+.5*dt*pop1_V_k1))-13)./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))-13)/25)))))./(((3*(-.018*(((pop1_V_last+.5*dt*pop1_V_k1))-13)./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))-13)/25)))))+((.0054*(((pop1_V_last+.5*dt*pop1_V_k1))-23)./(-1+exp((((pop1_V_last+.5*dt*pop1_V_k1))-23)/12)))))))-((pop1_iKDR_n_last+.5*dt*pop1_iKDR_n_k1)))./((1./(((3*(-.018*(((pop1_V_last+.5*dt*pop1_V_k1))-13)./(-1+exp(-(((pop1_V_last+.5*dt*pop1_V_k1))-13)/25)))))+((.0054*(((pop1_V_last+.5*dt*pop1_V_k1))-23)./(-1+exp((((pop1_V_last+.5*dt*pop1_V_k1))-23)/12)))))));
+  pop1_CaBuffer_cai_k2= -(((( p.pop1_iCaT_gCaT.*((pop1_iCaT_m_last+.5*dt*pop1_iCaT_m_k1)).^2.*((pop1_iCaT_h_last+.5*dt*pop1_iCaT_h_k1)).*(((pop1_V_last+.5*dt*pop1_V_k1))-p.pop1_iCaT_ECa)))))./p.pop1_CaBuffer_taurCa+(pop1_CaBuffer_CaRest-((pop1_CaBuffer_cai_last+.5*dt*pop1_CaBuffer_cai_k1)))./p.pop1_CaBuffer_taudCa;
+  pop1_iCaT_m_k2=(((1./(1+exp((-((pop1_V_last+.5*dt*pop1_V_k1))-56)/6.2))))-((pop1_iCaT_m_last+.5*dt*pop1_iCaT_m_k1)))./((0.204+0.333./(exp((((pop1_V_last+.5*dt*pop1_V_k1))+15.8)/18.2)+exp((-((pop1_V_last+.5*dt*pop1_V_k1))-131)/16.7))));
+  pop1_iCaT_h_k2=(((1./(1+exp((((pop1_V_last+.5*dt*pop1_V_k1))+80)/4))))-((pop1_iCaT_h_last+.5*dt*pop1_iCaT_h_k1)))./(((((pop1_V_last+.5*dt*pop1_V_k1))<-81).*(0.333*exp((((pop1_V_last+.5*dt*pop1_V_k1))+466)/66.6))+(((pop1_V_last+.5*dt*pop1_V_k1))>=-81).*(9.32+0.333*exp((-((pop1_V_last+.5*dt*pop1_V_k1))-21)/10.5))));
+  pop1_iAHP_m_k2= ((( (( p.pop1_iAHP_aAHP_scale*1.25*100*((pop1_CaBuffer_cai_last+.5*dt*pop1_CaBuffer_cai_k1)).^2))./((( p.pop1_iAHP_aAHP_scale*1.25*100*((pop1_CaBuffer_cai_last+.5*dt*pop1_CaBuffer_cai_k1)).^2))+p.pop1_iAHP_b)))-((pop1_iAHP_m_last+.5*dt*pop1_iAHP_m_k1)))./(( 1000./(( p.pop1_iAHP_aAHP_scale*1.25*100*((pop1_CaBuffer_cai_last+.5*dt*pop1_CaBuffer_cai_k1)).^2))+p.pop1_iAHP_b));
+  % ------------------------------------------------------------
+  % Update state variables:
+  % ------------------------------------------------------------
+  pop1_V_last=pop1_V_last+dt*pop1_V_k2;
+  pop1_iNaF_m_last=pop1_iNaF_m_last+dt*pop1_iNaF_m_k2;
+  pop1_iNaF_h_last=pop1_iNaF_h_last+dt*pop1_iNaF_h_k2;
+  pop1_iKDR_n_last=pop1_iKDR_n_last+dt*pop1_iKDR_n_k2;
+  pop1_CaBuffer_cai_last=pop1_CaBuffer_cai_last+dt*pop1_CaBuffer_cai_k2;
+  pop1_iCaT_m_last=pop1_iCaT_m_last+dt*pop1_iCaT_m_k2;
+  pop1_iCaT_h_last=pop1_iCaT_h_last+dt*pop1_iCaT_h_k2;
+  pop1_iAHP_m_last=pop1_iAHP_m_last+dt*pop1_iAHP_m_k2;
+if mod(k,downsample_factor)==0 % store this time point
+  % ------------------------------------------------------------
+  % Store state variables:
+  % ------------------------------------------------------------
+  pop1_V(n)=pop1_V_last;
+  pop1_iNaF_m(n)=pop1_iNaF_m_last;
+  pop1_iNaF_h(n)=pop1_iNaF_h_last;
+  pop1_iKDR_n(n)=pop1_iKDR_n_last;
+  pop1_CaBuffer_cai(n)=pop1_CaBuffer_cai_last;
+  pop1_iCaT_m(n)=pop1_iCaT_m_last;
+  pop1_iCaT_h(n)=pop1_iCaT_h_last;
+  pop1_iAHP_m(n)=pop1_iAHP_m_last;
+  n=n+1;
+end
+end
+T=T(1:downsample_factor:ntime);

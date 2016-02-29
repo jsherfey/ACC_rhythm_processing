@@ -4,7 +4,7 @@
 % Parameters
 gCaT=6
 ECa=125
-IC=0; IC_noise=0
+IC=.25; IC_noise=0
 
 % Functions
 minf(X)=1./(1+exp((-X-56)/6.2))

@@ -80,10 +80,10 @@ cd(model_path);
 % Class 5 may have bigger Ih and slightly faster adaptation than Class 1, 
 %         but otherwise similar IPs; is more concentrated in middle layers.
 
-tspan=[0 500];  % [ms], time limits on numerical integration
+tspan=[0 300];  % [ms], time limits on numerical integration
 dt=.01;         % [ms], time step for numerical integration
 solver='rk2';   % {options; 'rk4', 'rk2', 'rk1'}, solver to use
-compile_flag=0; % whether to compile the simulation
+compile_flag=1; % whether to compile the simulation
 verbose_flag=1; % whether to display log information
 downsample_factor=10;
 solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor};
@@ -106,19 +106,23 @@ mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
 mods={'gCaT',2;'gKCa',.2;'gleak',.4;'Eleak',-75;'noise',0};
 vary={'gh',[0 1 10 20 30 50];'Iinj',[5 7.5 10]};
 
-mechanisms='{iNaF,iKDR}'; mods={'gNaF',50;'gKDR',4;'Cm',1.2}; vary={'Iinj',-10:5:30};
-mechanisms='{iNaF,iKDR,ileak}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:5:30};
-mechanisms='{RSiNaF,RSiKDR}'; mods={'gNaF',200;'gKDR',20;'Cm',1.2}; vary={'Iinj',-10:5:30};
-mechanisms='{RSiNaF,RSiKDR,ileak}'; mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:5:30};
+mechanisms='{iNaF,iKDR,ileak,iM}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2;'Iinj',35}; vary={'gM',0:.1:.5};
+mechanisms='{iNaF,iKDR,ileak,iCaT}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2;'Iinj',35}; vary={'gCaT',0:.5:3};
+mechanisms='{iNaF,iKDR,ileak,iHVA,CaBuffer}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'iHVA',0:.5:3;'Iinj',[20 30 40]};
+mechanisms='{iNaF,iKDR,ileak,iCaH}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'gCaH',0:.5:3;'Iinj',[20 30 40]};
+
+mechanisms='{RSiNaF,RSiKDR,ileak,iM}'; mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:5:30;'gM',1};
+mechanisms='{RSiNaF,RSiKDR,ileak,iCaT}'; mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'Iinj',-10:10:30;'gCaT',[0:.1:.5]};
+%mechanisms='{RSiNaF,RSiKDR,ileak,iHVA,CaBuffer}'; mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'iHVA',0:.5:3;'Iinj',[20 30 40]};
 
 % generic execution
-eqns=['dV/dt=(@current+Iinj*(t>100)+noise*rand(1,Npop))/Cm; V(0)=-75; Cm=1.2; Iinj=10; noise=0;' mechanisms];
+eqns=['dV/dt=(@current+Iinj*(t>100)+noise*rand(1,Npop))/Cm; V(0)=-75; Cm=1.2; Iinj=10; noise=0; monitor functions;' mechanisms];
 model=ApplyModifications(eqns,mods);
 prefix=['cell_' get_strID(mechanisms,'mech')];
 study_dir=fullfile(rootoutdir,'cells','test_sweeps',get_strID(mechanisms,'mech'),[get_strID(mods,'mods') '__' get_strID(vary,'vary')]);
 if save_plots_flag==1, plot_functions=@PlotData; else plot_functions=[]; end
 data=SimulateModel(model,'vary',vary,solver_options{:},'plot_functions',plot_functions,'plot_options',plot_options,'study_dir',study_dir,'prefix',prefix,'save_results_flag',save_plots_flag,'save_data_flag',save_data_flag);
-PlotData(data,'ylim',[-100 50]); file=fullfile(study_dir,'waveforms.jpg'); print(gcf,file,'-djpeg');
+PlotData(data,'ylim',[-100 50]); file=fullfile(study_dir,'waveforms.jpg'); set(gcf,'PaperPositionMode','auto'); print(gcf,file,'-djpeg');
 
 if 0 % quantitatively assess a particular model
   index=8; m=data(index).model; amps=-50:25:550;
@@ -129,6 +133,65 @@ if 0 % quantitatively assess a particular model
   file=fullfile(study_dir,sprintf('sim%g_ProbeCell_AHPtime%g_RMP%g_Ih%g_ISImedian%g_AR%g_APamp%g_APdur%g_ISI%g_FRmin%g.jpg',index,stats.pop1.AHP_time2trough,stats.pop1.RMP,stats.pop1.Ih_abssag,stats.pop1.ISI_median,stats.pop1.AR23,stats.pop1.AP_amp,stats.pop1.AP_dur,stats.pop1.ISI1,stats.pop1.FR_min));
   print(gcf,file,'-djpeg');
 end  
+% -----
+
+tspan=[0 300];  % [ms], time limits on numerical integration
+dt=.01;         % [ms], time step for numerical integration
+solver='rk2';   % {options; 'rk4', 'rk2', 'rk1'}, solver to use
+compile_flag=1; % whether to compile the simulation
+verbose_flag=1; % whether to display log information
+downsample_factor=10;
+solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor};
+save_data_flag=1; save_plots_flag=0; plot_options={'visible','off'};
+
+mods1={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2};
+mods2={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2};
+gvals=[0 .05 .1 .2 .5 1 2 5 10 20 50]; gvals2=[0 .05 .1 .5 1 5 10];
+Ivals=[-5 0 5 10 30 50]; I0=35; RSI0=20;
+common_dir=fullfile(rootoutdir,'cells','test_sweeps');
+sets={
+  '{iNaF,iKDR,ileak,iKS}', mods1, {'gKS',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,ih}', mods1, {'gh',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,iM}', mods1, {'gM',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,iNaP}', mods1, {'gNaP',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,CaBuffer,iHVA}', mods1, {'gHVA',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaH}', mods1, {'gCaH',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaT}', mods1, {'gCaT',gvals;'Iinj',Ivals};
+  '{iNaF,iKDR,ileak,CaBuffer,iHVA,iAHP}', cat(1,mods1,{'Iinj',I0}), {'gHVA',gvals;'gAHP',gvals2};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaH,iKCa}', cat(1,mods1,{'Iinj',I0}), {'gCaH',gvals;'gKCa',gvals2};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaH,iAHP}', cat(1,mods1,{'Iinj',I0}), {'gCaH',gvals;'gAHP',gvals2};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaT,iKCa}', cat(1,mods1,{'Iinj',I0}), {'gCaT',gvals;'gKCa',gvals2};
+  '{iNaF,iKDR,ileak,CaBuffer,iCaT,iAHP}', cat(1,mods1,{'Iinj',I0}), {'gCaT',gvals;'gAHP',gvals2};
+  '{RSiNaF,RSiKDR,ileak,iKS}', mods2, {'gKS',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,ih}', mods2, {'gh',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,iM}', mods2, {'gM',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,iNaP}', mods2, {'gNaP',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iHVA}', mods2, {'gHVA',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaH}', mods2, {'gCaH',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaT}', mods2, {'gCaT',gvals;'Iinj',Ivals};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iHVA,iAHP}', cat(1,mods2,{'Iinj',RSI0}), {'gHVA',gvals;'gAHP',gvals2};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaH,iKCa}', cat(1,mods2,{'Iinj',RSI0}), {'gCaH',gvals;'gKCa',gvals2};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaH,iAHP}', cat(1,mods2,{'Iinj',RSI0}), {'gCaH',gvals;'gAHP',gvals2};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaT,iKCa}', cat(1,mods2,{'Iinj',RSI0}), {'gCaT',gvals;'gKCa',gvals2};
+  '{RSiNaF,RSiKDR,ileak,CaBuffer,iCaT,iAHP}', cat(1,mods2,{'Iinj',RSI0}), {'gCaT',gvals;'gAHP',gvals2};
+};
+
+for s=1:size(sets,1)
+  fprintf('SET %g of %g\n',s,size(sets,1));
+  mechanisms=sets{s,1};
+  mods=sets{s,2};
+  vary=sets{s,3};
+  eqns=sprintf('dV/dt=(@current+Iinj*(t>100&t<%g)+noise*rand(1,Npop))/Cm; V(0)=-75; Cm=1.2; Iinj=10; noise=0; monitor functions;%s',tspan(2)-50,mechanisms);
+  model=ApplyModifications(eqns,mods);
+  prefix=['cell_' get_strID(mechanisms,'mech')];
+  study_dir=fullfile(rootoutdir,'cells','test_sweeps',get_strID(mechanisms,'mech'),[get_strID(mods,'mods') '__' get_strID(vary,'vary')]);
+  if save_plots_flag==1, plot_functions=@PlotData; else plot_functions=[]; end
+  data=SimulateModel(model,'vary',vary,solver_options{:},'plot_functions',plot_functions,'plot_options',plot_options,'study_dir',study_dir,'prefix',prefix,'save_results_flag',save_plots_flag,'save_data_flag',save_data_flag);
+  PlotData(data,'ylim',[-100 50]); set(gcf,'PaperPositionMode','auto');
+  file=fullfile(study_dir,'waveforms.jpg'); print(gcf,file,'-djpeg');
+  file=fullfile(common_dir,sprintf('%s__%s__%s__waveforms.jpg',get_strID(mechanisms,'mech'),get_strID(mods,'mods'),get_strID(vary,'vary'))); print(gcf,file,'-djpeg');
+end
+
 % -------------------------------------------------------------------------
 % Step 2: quantitative assessment of single IP = f(param)
 % Method: use experiments and/or local/cluster SimulateModel with experiment 
