@@ -402,12 +402,23 @@ end
 % -------------------------------------------------------------------------
 
 %% POST-PROCESSING
-if cluster_flag
-  tic
-  data3=ImportData(exp3_study_dir);%,'variables',proc_variables);
-  toc
+
+if save_data_flag % && cluster_flag
+  data=ImportData(exp3_study_dir); 
 end
-stats=ImportResults(study_dir_test1,@CalcSpikeSync); 
+stats=ImportResults(exp3_study_dir,@CalcSpikeSync); 
+
+
+
+% % Plot results over parameter space
+% RxyEE=[sync_stats.E_v_E_v_xcmax_pops];
+% RxyEIf=[sync_stats.E_v_If_v_xcmax_pops];
+% ginp=[sync_stats.E_gINPUT];
+% figure; 
+% subplot(2,1,1); plot(ginp,RxyEE,'bo'); lsline
+% xlabel('gINPUT'); ylabel('<Rxy(rE,rE)>');
+% subplot(2,1,2); plot(ginp,RxyEIf,'ro'); lsline
+% xlabel('gINPUT'); ylabel('<Rxy(rE,rIf)>');
 
 
 return
