@@ -76,7 +76,7 @@ addpath(model_path);
 cd(model_path);
 
 %% SIMULATOR CONTROLS (what to do)
-tspan=[0 1000];%[0 10000];  % [ms], time limits on numerical integration
+tspan=[0 500];%[0 10000];  % [ms], time limits on numerical integration
 dt=.01;         % [ms], time step for numerical integration
 solver='rk2';   % {options; 'rk4', 'rk2', 'rk1'}, solver to use
 compile_flag=1; % whether to compile the simulation
@@ -86,11 +86,11 @@ solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_fla
 % -------------------------------------------------------------------------
 % Population definitions
 % population sizes
-nE=20;%20; % # of E-cells per pyramidal population
+nE=10;%20; % # of E-cells per pyramidal population
 nI=5;  % # of I-cells per interneuron population
 % select interneuron populations
-If_flag=1; % whether to include interneurons with fast inhibition
-Is_flag=1; % whether to include interneurons with slow inhibition
+If_flag=0; % whether to include interneurons with fast inhibition
+Is_flag=0; % whether to include interneurons with slow inhibition
 % select cell models
 E_type='ACd_Class1'; % options: {'PY','ACd_Class1','ACd_Class2','ACd_Class3','ACd_Class4'; todo: 'ACC_sup','ACC_deep'} (differentiated by rat ACd PY IPs measured by Natalie Adams)
   % Class 1 has long AHP, slow adaptation, and dominates superficial layers.
@@ -168,14 +168,10 @@ tauIs=13;   % Is, slow inhibitory decay time constant
 % gEI=.2; % I->E
 % gIE=.2; % E->I
 % gII=0;  % I->I
-% gEE=0;            % E->E
-% gEI=1.4;          % I->E
-% gIE=(nI/nE)*gEI;  % E->I
-% gII=.5*gIE;       % I->I
-gEE=0;              % E->E
-gIE=1.4;            % E->I
-gEI=(nI/nE)*gIE;    % I->E
-gII=.5*gEI;         % I->I
+gEE=0;            % E->E
+gEI=1.4;          % I->E
+gIE=(nI/nE)*gEI;  % E->I
+gII=.5*gIE;       % I->I
 
 % max synaptic conductances per synapse (normalized by number of presynaptic sources for each postsynaptic target cell)
 gEE=gEE./max(1,sum(netconEE,1)); % [1 x N_post]
@@ -261,18 +257,18 @@ if 0
         '(Is->If,If->Is)','gSYN',[0 gII(1)*2]; '(Is->If,Is->Is,Is->E)','tauD',[5:2.5:15]};   
 
   % Play (manually explore the model):
-  vary={'E','baseline_rate',[.5 1.5 3]; 'E','gM',3; '(If,Is)','baseline_rate',[0 .1];
+  vary={'E','baseline_rate',[5 10 15]; 'E','gM',10; '(If,Is)','baseline_rate',[0 .5 1];
         '(Is->If,If->Is)','gSYN',gII(1)*2; '(Is->If,Is->Is,Is->E)','tauD',[5]};   
 end
 
 % Simulate model and plot simulated data
 data=SimulateModel(s,'vary',vary,solver_options{:});
-PlotData(data,'plot_type','rastergram')
-PlotData(data,'plot_type','power','xlim',[0 100],'ylim',[0 20])
-PlotData(data,'plot_type','waveform');%,'xlim',[0 500])
+% PlotData(data,'plot_type','rastergram')
+% PlotData(data,'plot_type','power','xlim',[0 100],'ylim',[0 20])
+% PlotData(data,'plot_type','waveform','xlim',[0 500])
 PlotData(data,'plot_type','waveform','variable','E_v')
 
-%[p,f]=LocateModelFiles(data); p{:},f{:}
+[p,f]=LocateModelFiles(data); p{:},f{:}
 
 if 0
   % plot how # spikes depends on RMP (roughly proportional to Eleak)
@@ -332,9 +328,15 @@ else
   EhetID='hom';
 end
 netID=sprintf('%s-%g%s',E_type,nE,EhetID);
-if Is_flag, netID=sprintf('%s__Is%s-%g%s',netID,Is_type,nI,IhetID); end
-if If_flag, netID=sprintf('%s__If%s-%g%s',netID,If_type,nI,IhetID); end
-if ~isempty(net_params_str), netID=[netID '__' net_params_str]; end
+if Is_flag
+  netID=sprintf('%s__%s-%g%s',netID,Is_type,nI,IhetID);
+end
+if If_flag
+  netID=sprintf('%s__%s-%g%s',netID,If_type,nI,IhetID);
+end
+if ~isempty(net_params_str)
+  netID=[netID '__' net_params_str];
+end
 netID=sprintf('%s_%g',netID,net_realization);
 prefix=netID;
 net_study_dir=fullfile(rootoutdir,'networks',prefix);
@@ -347,106 +349,18 @@ net_study_dir=fullfile(rootoutdir,'networks',prefix);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% STUDY NETWORK WITH COMPETING SUBPOPULATIONS (vary (f1,f2) and input sync ac/dc)
+experiment=@ProbeTwoRhythms;
+experiment_options={'f1',f1,'f2',f2,'dc',dc,'ac',ac,'num_repetitions',5};
+analysis_functions={@CalcCompetition,@CalcSpikeSync};
+plot_functions={?};
+vary={'(Is->If,Is->Is,Is->E)','tauD',[5:2.5:15]};
+[~,studyinfo_tworhythm]=SimulateModel(s_,...,'cluster_flag',1,'sims_per_job',#); % save results but not data
+stats_competition=ImportResults(studyinfo_tworhythm,plot_functions{1});
+stats_sync       =ImportResults(studyinfo_tworhythm,plot_functions{2});
 
-% Solver options
-tspan=[0 2000];%[0 10000];  % [ms], time limits on numerical integration
-dt=.01;         % [ms], time step for numerical integration
-solver='rk2';   % {options; 'rk4', 'rk2', 'rk1'}, solver to use
-compile_flag=1; % whether to compile the simulation
-verbose_flag=1; % whether to display log information
-downsample_factor=10;
-cluster_flag=1;
-sims_per_job=5;
-mem_limit='8G';
-save_data_flag=0;
-solver_options={'tspan',tspan,'dt',dt,'solver',solver,'compile_flag',compile_flag,'verbose_flag',verbose_flag,'downsample_factor',downsample_factor,'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'mem_limit',mem_limit,'save_data_flag',save_data_flag};
-
-% Experiment options
-baseline=0; DC=[1 2 3]; AC=1; gINPUT=.03; fINPUT=10:10:60; num_repetitions=5;
-exp3_params={'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'baseline',baseline,'DC',DC,'AC',AC,'num_repetitions',num_repetitions};
-exp3_study_dir=fullfile(net_study_dir,['PrepProbeTwoRhythms__' get_strID(exp3_params,'options')]);
-
-% Run experiments
-% turn off tonic input but leave noisy baseline drives
-s_=ApplyModifications(s,{'(E,If,Is)','Iapp',0}); % turn off inputs
-% -------------------------------------------------------------------------
-% EXPERIMENT #3: Two rhythmic Poisson inputs
-[model,vary]=PrepProbeTwoRhythms(s_,exp3_params{:});
-if cluster_flag==0
-  [data3,study3]=SimulateModel(model,'vary',vary,'study_dir',exp3_study_dir,solver_options{:},'prefix',prefix);
-else
-  plot_functions={@PlotData,@PlotData,@PlotData,@PlotData};
-  plot_options={
-    {'plot_type','rastergram'},...
-    {'plot_type','power','xlim',[0 100]},...
-    {'plot_type','power','xlim',[0 100],'variable','E_v'},...
-    {'plot_type','waveform','ylim',[-100 50]},...
-    };
-  ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 .5],'E_v',[.5 1];...
-             'E_v',[0 .5],'E_v',[0 .5];'E_v',[.5 1],'E_v',[.5 1];...
-             'E_v',[0 .5],'If_v',[0 1];'E_v',[0 .5],'Is_v',[0 1];...
-             'E_v',[.5 1],'If_v',[0 1];'E_v',[.5 1],'Is_v',[0 1];...
-             'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];...
-             'If_v',[0 1],'Is_v',[0 1]};
-  % TEMPORARY --------
-  exp3_params={'f1',[20 40],'f2',[20 40],'gINPUT',gINPUT,'baseline',baseline,'DC',2,'AC',AC,'num_repetitions',3};
-  [model,vary]=PrepProbeTwoRhythms(s_,exp3_params{:});
-  exp3_study_dir=fullfile(net_study_dir,['PrepProbeTwoRhythms__' get_strID(exp3_params,'options')]);
-  % ------------------
-  [~,study3]=SimulateModel(model,'vary',vary,'study_dir',exp3_study_dir,solver_options{:},'prefix',prefix,...
-    'analysis_functions',@CalcSpikeSync,'analysis_options',{'ROI_pairs',ROI_pairs},...
-    'plot_functions',plot_functions,'plot_options',plot_options);
-  % !qstat -u sherfey
-  % unix(sprintf('cat %s/pbsout/sim_job1.out',study3.simulations(1).batch_dir));
-end
-% -------------------------------------------------------------------------
-
-%% POST-PROCESSING
-if cluster_flag
-  tic
-  data3=ImportData(exp3_study_dir);%,'variables',proc_variables);
-  toc
-end
-stats=ImportResults(study_dir_test1,@CalcSpikeSync); 
-
-
-return
-
-tic; res=CalcSpikeSync(data(end)), toc
-tic; res=CalcSpikeSync(data(end),'ROI_pairs',ROI_pairs), toc
-
-% tic; res=CalcSpikeSync(data3(end)), toc
-% figure; imagesc(res.E_v_E_v_xcsum_cells); caxis([0 1.5]); axis square
-% 
-% ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 .5],'E_v',[.5 1]};
-% res=CalcSpikeSync(data3(end),'ROI_pairs',ROI_pairs)
-% 
-% ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];'If_v',[0 1],'Is_v',[0 1]};
-% result=AnalyzeData(data1(end),@CalcSpikeSync,'ROI_pairs',ROI_pairs)
-
-% % set experimental parameters
-% gINPUT=.01:.01:.08; num_repetitions=10; tau=2; target='E';
-% % set simulation, analysis, and plot parameters
-% cluster_flag=1; sims_per_job=5; mem_limit='8G'; post_downsample_factor=1;
-% study_dir_test1=fullfile(pwd,'dynasim_studies',sprintf('%s_TonicPoisson_test',prefix));
-% [model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'DC',DC_homo,'AC',AC,'tau',tau,'baseline',baseline);
-% analysis_functions=@CalcSpikeSync;
-% ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];'If_v',[0 1],'Is_v',[0 1]};
-% analysis_options={'ROI_pairs',ROI_pairs,'kernel_width',1,'Ts',1,'maxlag_time',10};
-% [~,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_test1,solver_options{:},...
-%   'analysis_functions',analysis_functions,'analysis_options',analysis_options,'plot_functions',plot_functions,'plot_options',plot_options,...
-%   'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
-% sync_stats=ImportResults(study_dir_test1,@CalcSpikeSync); 
-
-% experiment=@ProbeTwoRhythms;
-% experiment_options={'f1',f1,'f2',f2,'DC',DC,'AC',AC,'num_repetitions',5};
-% analysis_functions={@CalcCompetition,@CalcSpikeSync};
-% plot_functions={?};
-% vary={'(Is->If,Is->Is,Is->E)','tauD',[5:2.5:15]};
-% [~,studyinfo_tworhythm]=SimulateModel(s_,...,'cluster_flag',1,'sims_per_job',#); % save results but not data
-% stats_competition=ImportResults(studyinfo_tworhythm,plot_functions{1});
-% stats_sync       =ImportResults(studyinfo_tworhythm,plot_functions{2});
 % Plot (competition,sync,...)
+
+
 
 % -------------------------------------------------------------------------
 % turn off injected inputs for experiments
@@ -463,27 +377,27 @@ post_downsample_factor=1;
 proc_variables={'E_v','If_v','Is_v'}; % []
 
 % match the mean strengths of the homogeneous and nonhomogeneous
-% poisson-based inputs by adjusting the DC component to match the means 
+% poisson-based inputs by adjusting the dc component to match the means 
 % of their lambda's:
-baseline=0; DC_nonhomo=.1; AC=1;
+baseline=0; dc_nonhomo=.1; ac=1;
 t=0:1e-5:1; % one cycle
-I=max(0,AC*sin(2*pi*t)+DC_nonhomo);
-DC_homo=sum(I)/length(t);
+I=max(0,ac*sin(2*pi*t)+dc_nonhomo);
+dc_homo=sum(I)/length(t);
 
 % -------------------------------------------------------------------------
 % EXPERIMENT #1: Homogeneous Poisson
 study_dir_exp1=fullfile(pwd,'dynasim_studies',sprintf('%s_TonicPoisson',prefix));
-[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'DC',DC_homo,'AC',AC,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_homo,'ac',ac,'tau',tau,'baseline',baseline);
 [data1,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp1,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #2: Nonhomogeneous Poisson (rhythmic)
 study_dir_exp2=fullfile(pwd,'dynasim_studies',sprintf('%s_OneRhythmPoisson',prefix));
-[model,vary]=PrepProbeResonance(s_,'f',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'DC',DC_nonhomo,'AC',AC,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeResonance(s_,'f',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data2,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp2,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % EXPERIMENT #3: Two rhythmic Poisson inputs
 study_dir_exp3=fullfile(pwd,'dynasim_studies',sprintf('%s_TwoRhythmPoisson',prefix));
-[model,vary]=PrepProbeTwoRhythms(s_,'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'DC',DC_nonhomo,'AC',AC,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeTwoRhythms(s_,'f1',fINPUT,'f2',fINPUT,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_nonhomo,'ac',ac,'tau',tau,'baseline',baseline);
 [data3,studyinfo]=SimulateModel(model,'vary',vary,'study_dir',study_dir_exp3,solver_options{:},'cluster_flag',cluster_flag,'sims_per_job',sims_per_job,'memory_limit',mem_limit,'prefix',prefix);
 % -------------------------------------------------------------------------
 % POST-PROCESSING
@@ -537,7 +451,7 @@ subplot(1,2,2); imagesc(res2.E_v_E_v_xcsum_cells); caxis([0 1.5]); axis square
 % x_N = ((1:N)-0.5)/N;
 % conn = 1./(1+exp(-cos(2*pi*(x_N-x_c))/widthSigma))
 
-s=get_input('poisson',8,data1(1).time,0,DC,AC,tau,xc,baseline,phase);
+s=get_input('poisson',8,data1(1).time,0,dc,ac,tau,xc,baseline,phase);
 % .13
 % .32
 
@@ -562,7 +476,7 @@ plot_options={
   {'plot_type','power','xlim',[0 100],'variable','E_v'},...
   };
 study_dir_test1=fullfile(pwd,'dynasim_studies',sprintf('%s_TonicPoisson_test',prefix));
-[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'DC',DC_homo,'AC',AC,'tau',tau,'baseline',baseline);
+[model,vary]=PrepProbeResonance(s_,'f',0,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'dc',dc_homo,'ac',ac,'tau',tau,'baseline',baseline);
 analysis_functions=@CalcSpikeSync;
 ROI_pairs={'E_v',[0 1],'E_v',[0 1];'E_v',[0 1],'If_v',[0 1];'E_v',[0 1],'Is_v',[0 1];'If_v',[0 1],'Is_v',[0 1]};
 analysis_options={'ROI_pairs',ROI_pairs,'kernel_width',1,'Ts',1,'maxlag_time',10};
@@ -651,24 +565,24 @@ if 0
   dt=.01; % ms
   t=0:(dt/1000):1/f; % one cycle
   n=length(t);
-  DC_nonhomo=.1; 
-  AC=1;
-  I = max(0,AC*sin(2*pi*f*t)+DC_nonhomo);
+  dc_nonhomo=.1; 
+  ac=1;
+  I = max(0,ac*sin(2*pi*f*t)+dc_nonhomo);
   Imean = sum( I ) / n;
-  DC_homo=Imean;
+  dc_homo=Imean;
 
   nf=length(fINPUT);
-  DC_homo = zeros(1,nf);
+  dc_homo = zeros(1,nf);
   for i=1:nf
     t=0:(dt/1000):1/fINPUT(i); % one cycle
-    I = max(0,AC*sin(2*pi*fINPUT(i)*t)+DC);
-    DC_homo(i) = sum(I)/length(t);
+    I = max(0,ac*sin(2*pi*fINPUT(i)*t)+dc);
+    dc_homo(i) = sum(I)/length(t);
   end
-  DC_homo
+  dc_homo
   f=1:5; num_repetitions=1; gINPUT=[.01 .02 .06 .1];
-  [model,vary]=PrepProbeResonance(s_,'f',0,'DC',DC_homo,'AC',AC,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+  [model,vary]=PrepProbeResonance(s_,'f',0,'dc',dc_homo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
   [dat1,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
-  [model,vary]=PrepProbeResonance(s_,'f',f,'DC',DC_nonhomo,'AC',AC,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
+  [model,vary]=PrepProbeResonance(s_,'f',f,'dc',dc_nonhomo,'ac',ac,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'tau',tau,'baseline',baseline);
   [dat2,studyinfo]=SimulateModel(model,'vary',vary,solver_options{:});
   for i=1:4,mean(dat1(i).model.fixed_variables.E_s(:)),end
   for i=1:4,mean(dat2(i).model.fixed_variables.E_s(:)),end
@@ -699,8 +613,8 @@ s_=ApplyModifications(s,modifications);
 target='E'; input_type='poisson';
 
 % Experiment #1: homogeneous poisson probing natural frequency
-gINPUT=0:.01:.08; f=0; num_repetitions=10; DC=0; AC=1; baseline=.1; tau=2;
-[~,stats_f0]=ProbeResonance(s_,'f',f,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'DC',DC,'AC',AC,'tau',tau,'baseline',baseline,solver_options{:});
+gINPUT=0:.01:.08; f=0; num_repetitions=10; dc=0; ac=1; baseline=.1; tau=2;
+[~,stats_f0]=ProbeResonance(s_,'f',f,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline,solver_options{:});
 plottype='Exp1-ProbeResonance-HomogeneousPoisson'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
 
 f0=stats_f0.E_v_Power_MUA.repetition_sets.PeakFreq_mu;
@@ -723,9 +637,9 @@ ylabel('Area Power Around Peak');
 plottype='Exp1-MUA-power'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
 
 % Experiment #2: nonhomogeneous poisson probing center frequency
-gINPUT=.01:.01:.08; f=[20 40 60]; num_repetitions=10; DC=0; AC=1; baseline=.1; tau=2;
-% gINPUT=.01:.01:.08; f=[10 20 30]; num_repetitions=10; DC=0; AC=1; baseline=.1; tau=2;
-[~,stats_fc]=ProbeResonance(s_,'f',f,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'DC',DC,'AC',AC,'tau',tau,'baseline',baseline,solver_options{:});
+gINPUT=.01:.01:.08; f=[20 40 60]; num_repetitions=10; dc=0; ac=1; baseline=.1; tau=2;
+% gINPUT=.01:.01:.08; f=[10 20 30]; num_repetitions=10; dc=0; ac=1; baseline=.1; tau=2;
+[~,stats_fc]=ProbeResonance(s_,'f',f,'gINPUT',gINPUT,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline,solver_options{:});
 plottype='Exp2-ProbeResonance-RhythmicPoisson'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
 
 fc=stats_fc.E_v_FR.sweep_sets.repetition_sets.sweep_pop_FR_max_mu;
@@ -753,10 +667,10 @@ xlabel('gINPUT'); ylabel('fc-fMUA [Hz]'); ylim([0 40])
 plottype='Exps1-2_fc-vs-fMUA'; print(gcf,sprintf('%s_%s-gINPUT%g-%g_f-%g-%gHz_%s.jpg',prefix,input_type,gINPUT(1),gINPUT(end),f(1),f(end),plottype),'-djpeg');
 
 % Experiment #3: two nonhomogeneous poisson inputs probing competition vs cooperation
-gINPUT=[.01:.01:.08]; f1=[20 40 60]; f2=40; DC=0; AC=1; baseline=.1; tau=2;
-% gINPUT=[.01:.01:.08]; f1=[10 20 30]; f2=20; DC=0; AC=1; baseline=.1; tau=2;
+gINPUT=[.01:.01:.08]; f1=[20 40 60]; f2=40; dc=0; ac=1; baseline=.1; tau=2;
+% gINPUT=[.01:.01:.08]; f1=[10 20 30]; f2=20; dc=0; ac=1; baseline=.1; tau=2;
 num_repetitions=10; target='E'; input_type='poisson'; post_downsample_factor=2;
-[data,stats]=ProbeTwoRhythms(s_,'f1',f1,'f2',f2,'gINPUT',gINPUT,'SOA',0,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'DC',DC,'AC',AC,'tau',tau,'baseline',baseline,'post_downsample_factor',post_downsample_factor,solver_options{:});
+[data,stats]=ProbeTwoRhythms(s_,'f1',f1,'f2',f2,'gINPUT',gINPUT,'SOA',0,'target',target,'num_repetitions',num_repetitions,'input_type',input_type,'dc',dc,'ac',ac,'tau',tau,'baseline',baseline,'post_downsample_factor',post_downsample_factor,solver_options{:});
 
 toc(tstart)
 

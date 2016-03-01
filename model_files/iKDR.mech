@@ -3,9 +3,10 @@
 gKDR=4; 
 EK=-80; 
 IC=.1; IC_noise=0;
+akdr_scale=3;
 
 % Functions
-an(X)=3*(-.018*(X-13)./(-1+exp(-(X-13)/25)))
+an(X)=akdr_scale*(-.018*(X-13)./(-1+exp(-(X-13)/25)))
 bn(X)=.0054*(X-23)./(-1+exp((X-23)/12))
 ninf(X)=an(X)./(an(X)+bn(X))
 ntau(X)=1./(an(X)+bn(X))

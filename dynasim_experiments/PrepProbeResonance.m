@@ -14,8 +14,8 @@ options=CheckOptions(varargin,{...
   'gINPUT',1,[],... % max amplitude of applied current
   'f',5:5:60,[],... % Hz, modulation frequency (0: homogeneous poisson process)
   'num_repetitions',1,[],... % number of realizations of the input (set to >1 for noisy inputs if stats are desired)
-  'dc',0,[],... % kHz
-  'ac',1,[],... % kHz
+  'DC',0,[],... % kHz
+  'AC',1,[],... % kHz
   'baseline',.1,[],... % kHz
   'tau',2,[],... % ms
   },false);
@@ -46,7 +46,7 @@ for i=1:npops
   switch options.input_type
     case 'poisson'
       % hack: get ID to add to avoid conflict from changing number varied
-      param_names={'gINPUT','dc','ac','tau','baseline','f','repetition'};
+      param_names={'gINPUT','DC','AC','tau','baseline','f','repetition'};
       ID=[];
       for p=1:length(param_names)
         if numel(options.(param_names{p}))>1
@@ -54,7 +54,7 @@ for i=1:npops
         end
       end
       % add AMPA synapse for exponentially filtered modulated poisson process
-      s=sprintf('s=get_input(''%s'',Npop,T,f,dc,ac,tau,ones(1,Npop),baseline,phase); phase=0',options.input_type);
+      s=sprintf('s=get_input(''%s'',Npop,T,f,DC,AC,tau,ones(1,Npop),baseline,phase); phase=0',options.input_type);
       eqn_mods=sprintf('cat(ODE1,-gINPUT*s(k,:).*(X-0)+0*%g; %s)',sum(ID),s);
       modifications(end+1,:)={name,'equations',eqn_mods};
       for p=1:length(param_names)

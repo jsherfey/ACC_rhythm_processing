@@ -106,15 +106,6 @@ mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
 mods={'gCaT',2;'gKCa',.2;'gleak',.4;'Eleak',-75;'noise',0};
 vary={'gh',[0 1 10 20 30 50];'Iinj',[5 7.5 10]};
 
-% Class 2?:
-mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-mods={'gCaT',.1;'gKCa',2;'gleak',.4;'Eleak',-75;'noise',0};
-vary={'gh',[1];'Iinj',[20];'akca_scale',[10];'bkca_scale',.1};
-model=ApplyModifications(eqns,mods);
-data=SimulateModel(model,'vary',vary,solver_options{:});
-PlotData(data,'ylim',[-100 50]);
-
-
 mechanisms='{iNaF,iKDR,ileak,iM}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2;'Iinj',35}; vary={'gM',0:.1:.5};
 mechanisms='{iNaF,iKDR,ileak,iCaT}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2;'Iinj',35}; vary={'gCaT',0:.5:3};
 mechanisms='{iNaF,iKDR,ileak,iHVA,CaBuffer}'; mods={'gNaF',50;'gKDR',4;'gleak',.4;'Eleak',-75;'Cm',1.2}; vary={'iHVA',0:.5:3;'Iinj',[20 30 40]};
@@ -259,6 +250,18 @@ if 0
   stats.pop1
 end
 
+% Group 3 (Class 2 model)
+mechanisms='{naf,iKDR,ileak,cadyn,can,iAHP,M}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;' mechanisms];
+mods={'hV1NaF',23.1;'hV2NaF',25.1;'akdr_scale',1;'gleak',.017;'gM',.084;'gcan',.0056;'gAHP',.054;'Eleak',-66;'taurCa',1.93;'taudCa',200/7;'gKDR',6;'gNaF',50.25;'CaRest',5e-5;'aAHP_scale',1e6};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'gM',.084;'gAHP',.054;'Iinj',1:5});
+PlotData(data)
+modl=ApplyModifications(model,{'Iinj',0});
+data=ProbeCellProperties(modl,'amplitudes',(-20:10:400)/10,'compile_flag',0,'verbose_flag',1,'solver','rk2');
+PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
+stats=CalcCellProperties(data,'plot_flag',0); 
+stats.pop1
 
 
 %% Class 1: ACC L2/3/5 PY (rat ACd: LeBeau lab) (~ Group 2)
@@ -340,160 +343,74 @@ vary=[]; modifications=[];
 % Potassium:  (iKDR,iKS,iM,iKCa,iAHP)
 % Calcium:    (iHVA,iCaH,iCaT,CaBuffer)
 % Nonspecific: ih,ileak
-Cm=1.2; % Durstewitz 2003
+Cm=1.2; % Durstewitz 2002
 
-%            AHP duration              hyperpol-sag   <ISI>      adaptation
-% TARGETS: [AHP_time2trough]   [RMP]   [Ih_abssag] [ISI_median]    [AR23]
-%          'AHP(time2trough)'  'RMP'      'Ih'    'median(ISIs)' 'ISI2/ISI3'
-% Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16          .7-1.1
-% Class 2      11-32ms       -81 to -69  .5-1.4mV    13-30         .5-.7
-% Class 4      2-17ms        -67 to -60  1.7-2.9mV   22-39        (stops)
-% Class 3      30-70ms       -77 to -65  2.4-4.4mV   15-19         .7-1.1
-% Class 5      18-58ms           ??      .3-2mV      5-25          .5-.9
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%         'SpikeAmp' 'SpikeWidth'  'ISI1'   'ThreshRate'
-%          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
+base='dV/dt=(@current+Iinj*(t>100))/Cm; Cm=1.2; Iinj=10; V(0)=-65;';
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
+
+% qualitative examination of a model set
+eqns=['dV/dt=(@current+Iinj*(t>100))/Cm; Cm=1.2; Iinj=10; V(0)=-65;' mechanisms];
+vary={'','gleak',.05; '','gh',[0 1 10 20 30 50]; '','gCaT',2; '','gKCa',1; '','Iinj',[5 7.5 10]};
+PlotData(SimulateModel(eqns,'vary',vary,solver_options{:}));
+
+% quantitative characterization of a particular model
+eqns=['dV/dt=(@current+noise*randn)/Cm; Cm=1.2; noise=5; V(0)=-65;' mechanisms];
+%eqns=['dV/dt=@current/Cm; Cm=1.2; V(0)=-65;' mechanisms];
+mods={'','gleak',.15;'','Eleak',-75;'','noise',5; 
+  '','gh',.2; '','gCaT',1.25; '','gKCa',.5;'','gKDR',4.25;'','gNaF',55};
+
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iNaP,iKCa}';
+eqns=['dV/dt=(@current+noise*randn)/Cm; Cm=1.2; noise=5; V(0)=-65;' mechanisms];
+mods={'','gleak',.15;'','Eleak',-75;'','noise',5; 
+  '','gh',.15; '','gCaT',1.5; '','gKCa',.5;'','gKDR',4.25;'','gNaF',55;'','gNaP',1};
+
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iNaP,iKCa,iHVA}';
+mods={'','gleak',.15;'','Eleak',-75;'','noise',0;'','gHVA',5;'','vtauHVA',500;
+'','gh',.15; '','gCaT',0; '','gKCa',1;'','gKDR',4.25;'','gNaF',55;'','gNaP',0};
+
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iAHP}';
+mods={'','taurCa',80/7;'','gleak',.15; '','gh',.2; '','gCaT',1.5; '','gAHP',.1;'','Eleak',-75;'','noise',5};
+
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iHVA,iKCa}';
+mods={'','gleak',.15; '','gh',.2; '','gHVA',2.5; '','gKCa',.5;'','Eleak',-75;'','noise',0};
+
+eqns=['dV/dt=(@current+noise*randn)/Cm; Cm=1.2; noise=5; V(0)=-65;' mechanisms];
+amps=-50:5:400; I=1:10:61;
+amps=-50:50:400; I=1:10;
+model=ApplyModifications(eqns,mods);
+data=ProbeCellProperties(model,'amplitudes',amps,'compile_flag',1,'verbose_flag',1,'solver','rk2');
+PlotData(data(I))
+stats=CalcCellProperties(data,'plot_flag',0); 
+stats.pop1
 
 % TARGETS: [AHP_time2trough]   [RMP]  [Ih_abssag]   [ISI_median]    [AR23]
 % Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16ms        .7-1.1
 % Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
 %          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
    
-% Class 1 model (Group 2) version 1:
+% Class 1 model (without match to common targets):
 mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-%eqns=['dV/dt=(@current+noise*randn)/Cm; Cm=1.2; noise=5; V(0)=-65;monitor functions;' mechanisms];
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'gleak',.15;'gh',.025;'gCaT',1.5;'gKCa',.2;'Eleak',-75;'noise',5};
+eqns=['dV/dt=(@current+noise*randn)/Cm; Cm=1.2; noise=5; V(0)=-65;' mechanisms];
+mods={'','gleak',.15; '','gh',.2; '','gCaT',1.5; '','gKCa',.2;'','Eleak',-75;'','noise',5};
 model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.006 .007 .008 .009];'gAHP',[.4];'Iinj',[-2]});
-% PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
+data=ProbeCellProperties(model,'amplitudes',-50:10:400,'compile_flag',0,'verbose_flag',1,'solver','rk2');
+PlotData(data(unique(round(linspace(1,length(data),10)))))
 stats=CalcCellProperties(data,'plot_flag',0); 
 stats.pop1
-% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
-% Class 1      3ms (refine)     -74       .6mV          8ms        .94 (ARif=.88)
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%          81mV       1.31ms      f(Inp)     1-2Hz
 
-% Class 1 model (Group 2) version 2 (better):
-mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'akdr_scale',.75;'amnaf_scale',2;'gKDR',10;'gNaF',35;'gM',3;'gleak',.15;'gh',.025;'gCaT',0;'gKCa',.2;'Eleak',-75;'Iinj',15};
-model=ApplyModifications(eqns,mods);
-data=SimulateModel(model,solver_options{:},'vary',{'Iinj',[0 5 10 15 20 25]});
-PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',[-10 -7.5 -5 0:10:400],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
-% Class 1      11.6ms (refine)     -75       .6mV         f(Inp)    .91 (ARif=.5)
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%          94mV       1.7ms      f(Inp)       8Hz
-
-% Observation:
-% (akdr_scale < amnaf_scale) -> gradual rebound after repolarization phase (Class 1)
-% (akdr_scale > amnaf_scale) -> sharp rebound after repolarization phase (Class 2)
-
-% Heterogeneity:
-% gh: 0-.1?  (Ih: 0.885 +/- 0.66)
-% Eleak: -85 to -65
 
 % -------------------------------------------------------------------------
-% Step 2: quantitative assessment of single IP = f(param); plot (param,IPs)
+% Step 2: quantitative assessment of single IP = f(param)
+% Method: use local/cluster SimulateModel with experiment and analysis,
+%         varying one parameter at a time; plot (param,IPs)
 % -------------------------------------------------------------------------
 
-paramdist=@(mu,sigma,num_vals)normrnd(mu,sigma,[1 num_vals]);
 
-% HETEROGENEOUS gh:
-
-num_cells=10;
-sag_mu=0.885; sag_sd=0.66; level=2*(sag_sd/sag_mu);
-gh_mu=.025; gh_sigma=level*gh_mu;
-gh=max(0,paramdist(gh_mu,gh_sigma,num_cells));
-
-mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'size',num_cells;'gh',gh;'gCaT',1.5;'gKCa',.2;'gleak',.15;'Eleak',-75;'noise',5};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.006 .007 .008 .009];'gAHP',[.4];'Iinj',[-2]});
-% PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-sim_sag_mu=mean(stats.pop1.Ih_abssag);
-sim_sag_sd=std(stats.pop1.Ih_abssag);
-fprintf('Exp Ih mu: %g, sd: %g\n',sag_mu,sag_sd);
-fprintf('Sim Ih mu: %g, sd: %g\n',sim_sag_mu,sim_sag_sd);
-
-figure; 
-subplot(1,3,1); hist(gh)
-subplot(1,3,2); hist(stats.pop1.Ih_abssag);
-subplot(1,3,3); plot(gh,stats.pop1.Ih_abssag,'o-');
-
-% plot all IPs, one per row
-params=gh; param_label='gh';
-IP_labels={'AHP_time2trough','RMP','Ih_abssag','ISI_median','AR23'};
-IP_lims={[0 40],[-90 -60],[0 2],[0 20],[.5 1.5]};
-figure; cnt=0; num_IPs=length(IP_labels);
-for i=1:num_IPs
-  subplot(num_IPs,2,cnt+1); 
-  hist(stats.pop1.(IP_labels{i})); xlim(IP_lims{i});
-  xlabel(IP_labels{i});
-  subplot(num_IPs,2,cnt+2); 
-  plot(params,stats.pop1.(IP_labels{i}),'o-'); 
-  xlabel(param_label); ylabel(IP_labels{i}); ylim(IP_lims{i});
-  cnt=cnt+2;
-end
-
-% HETEROGENEOUS Eleak:
-num_cells=10;
-RMP_mu=-74.9; RMP_sd=9.96; level=.75*(RMP_sd/RMP_mu);
-Eleak_mu=-75; Eleak_sigma=level*Eleak_mu;
-Eleak=paramdist(Eleak_mu,Eleak_sigma,num_cells);
-
-mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'size',num_cells;'gh',.025;'gCaT',1.5;'gKCa',.2;'gleak',.15;'Eleak',Eleak;'noise',5};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.006 .007 .008 .009];'gAHP',[.4];'Iinj',[-2]});
-% PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-sim_RMP_mu=mean(stats.pop1.RMP);
-sim_RMP_sd=std(stats.pop1.RMP);
-fprintf('Exp RMP mu: %g, sd: %g\n',RMP_mu,RMP_sd);
-fprintf('Sim RMP mu: %g, sd: %g\n',sim_RMP_mu,sim_RMP_sd);
-
-figure; 
-subplot(1,3,1); hist(Eleak)
-subplot(1,3,2); hist(stats.pop1.RMP);
-subplot(1,3,3); plot(Eleak,stats.pop1.RMP,'o-');
-
-% plot all IPs, one per row
-params=Eleak; param_label='Eleak';
-IP_labels={'AHP_time2trough','RMP','Ih_abssag','ISI_median','AR23'};
-IP_lims={[0 40],[-90 -60],[0 2],[0 20],[.5 1.5]};
-figure; cnt=0; num_IPs=length(IP_labels);
-for i=1:num_IPs
-  subplot(num_IPs,2,cnt+1); 
-  hist(stats.pop1.(IP_labels{i})); xlim(IP_lims{i});
-  xlabel(IP_labels{i});
-  subplot(num_IPs,2,cnt+2); 
-  plot(params,stats.pop1.(IP_labels{i}),'o-'); 
-  xlabel(param_label); ylabel(IP_labels{i}); ylim(IP_lims{i});
-  cnt=cnt+2;
-end
+% -------------------------------------------------------------------------
+% Step 3: quantitative fit to multiple IPs
+% Method: use local/cluster SimulateModel with experiment and analysis,
+%         varying multiple parameters; plot (params,IPs) with targets marked
+% -------------------------------------------------------------------------
 
 %% Class 2: ACC L5/6 PY (rat ACd: LeBeau lab) (~ Group 3)
 %{
@@ -519,139 +436,6 @@ HETEROGENEOUS PROPERTIES:
 (1.2):       ThreshRate: 1.69 +/- 1.99            (n=11)
 %}
 
-%            AHP duration              hyperpol-sag   <ISI>      adaptation
-% TARGETS: [AHP_time2trough]   [RMP]   [Ih_abssag] [ISI_median]    [AR23]
-%          'AHP(time2trough)'  'RMP'      'Ih'    'median(ISIs)' 'ISI2/ISI3'
-% Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16          .7-1.1
-% Class 2      11-32ms       -81 to -69  .5-1.4mV    13-30         .5-.7
-% Class 4      2-17ms        -67 to -60  1.7-2.9mV   22-39        (stops)
-% Class 3      30-70ms       -77 to -65  2.4-4.4mV   15-19         .7-1.1
-% Class 5      18-58ms           ??      .3-2mV      5-25          .5-.9
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%         'SpikeAmp' 'SpikeWidth'  'ISI1'   'ThreshRate'
-%          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
-
-mechanisms='{iNaF,iKDR,ileak,cadyn,can,iAHP,M,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'hV1NaF',23.1;'hV2NaF',25.1;'akdr_scale',1;'gAHP',.054;'gleak',.017;'gM',.084;'gcan',.0056;'Eleak',-66;'taurCa',1.93;'taudCa',200/7;'gKDR',6;'gNaF',50.25;'CaRest',5e-5;'aAHP_scale',1e6};
-
-% Class 2 model (Group 3)
-mechanisms='{iNaF,iKDR,ileak,cadyn,can,iAHP,M,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'hV1NaF',23.1;'hV2NaF',25.1;'gh',.001;'akdr_scale',1;'gAHP',.4;'gleak',.017;'gM',.1;'gcan',.0056;'Eleak',-70;'taurCa',1.93;'taudCa',200/7;'gKDR',6;'gNaF',50.25;'CaRest',5e-5;'aAHP_scale',1e6};
-model=ApplyModifications(eqns,mods);
-%data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.001];'gAHP',[.4];'Iinj',[15]});
-%PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
-% Class 2      26ms              -73mV     .97mV    14ms        .97 (ARif=.89)
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%          84mV       1.45ms       f(Inp)     1-2Hz
-
-% Experiment:
-% RMP: -75.4 +/- 6.44            (n=13)
-% Ih: 0.95 +/- 0.437           (n=12)
-
-% Model heterogeneity:
-% gh: 0-.002
-% Eleak: -80 to -70
-
-paramdist=@(mu,sigma,num_vals)normrnd(mu,sigma,[1 num_vals]);
-
-% HETEROGENEOUS gh:
-
-num_cells=10;
-sag_mu=0.95; sag_sd=0.437; level=2*(sag_sd/sag_mu);
-gh_mu=.001; gh_sigma=level*gh_mu;
-gh=max(0,paramdist(gh_mu,gh_sigma,num_cells));
-
-mechanisms='{iNaF,iKDR,ileak,cadyn,can,iAHP,M,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'size',num_cells;'hV1NaF',23.1;'hV2NaF',25.1;'gh',gh;'akdr_scale',1;'gAHP',.4;'gleak',.017;'gM',.1;'gcan',.0056;'Eleak',-70;'taurCa',1.93;'taudCa',200/7;'gKDR',6;'gNaF',50.25;'CaRest',5e-5;'aAHP_scale',1e6};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.006 .007 .008 .009];'gAHP',[.4];'Iinj',[-2]});
-% PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-sim_sag_mu=mean(stats.pop1.Ih_abssag);
-sim_sag_sd=std(stats.pop1.Ih_abssag);
-fprintf('Exp Ih mu: %g, sd: %g\n',sag_mu,sag_sd);
-fprintf('Sim Ih mu: %g, sd: %g\n',sim_sag_mu,sim_sag_sd);
-
-figure; 
-subplot(1,3,1); hist(gh)
-subplot(1,3,2); hist(stats.pop1.Ih_abssag);
-subplot(1,3,3); plot(gh,stats.pop1.Ih_abssag,'o-');
-
-% plot all IPs, one per row
-params=gh; param_label='gh';
-IP_labels={'AHP_time2trough','RMP','Ih_abssag','ISI_median','AR23'};
-IP_lims={[0 40],[-90 -60],[0 2],[0 20],[.5 1.5]};
-figure; cnt=0; num_IPs=length(IP_labels);
-for i=1:num_IPs
-  subplot(num_IPs,2,cnt+1); 
-  hist(stats.pop1.(IP_labels{i})); xlim(IP_lims{i});
-  xlabel(IP_labels{i});
-  subplot(num_IPs,2,cnt+2); 
-  plot(params,stats.pop1.(IP_labels{i}),'o-'); 
-  xlabel(param_label); ylabel(IP_labels{i}); ylim(IP_lims{i});
-  cnt=cnt+2;
-end
-
-% HETEROGENEOUS Eleak:
-num_cells=10;
-RMP_mu=-75.4; RMP_sd=6.44; level=.75*(RMP_sd/RMP_mu);
-Eleak_mu=-70; Eleak_sigma=level*Eleak_mu;
-Eleak=paramdist(Eleak_mu,Eleak_sigma,num_cells);
-
-mechanisms='{iNaF,iKDR,ileak,cadyn,can,iAHP,M,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'size',num_cells;'hV1NaF',23.1;'hV2NaF',25.1;'gh',.001;'akdr_scale',1;'gAHP',.4;'Eleak',Eleak;'gleak',.017;'gM',.1;'gcan',.0056;'taurCa',1.93;'taudCa',200/7;'gKDR',6;'gNaF',50.25;'CaRest',5e-5;'aAHP_scale',1e6};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'gM',[.1];'gh',[.006 .007 .008 .009];'gAHP',[.4];'Iinj',[-2]});
-% PlotData(data)
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-sim_RMP_mu=mean(stats.pop1.RMP);
-sim_RMP_sd=std(stats.pop1.RMP);
-fprintf('Exp RMP mu: %g, sd: %g\n',RMP_mu,RMP_sd);
-fprintf('Sim RMP mu: %g, sd: %g\n',sim_RMP_mu,sim_RMP_sd);
-
-figure; 
-subplot(1,3,1); hist(Eleak)
-subplot(1,3,2); hist(stats.pop1.RMP);
-subplot(1,3,3); plot(Eleak,stats.pop1.RMP,'o-');
-
-% plot all IPs, one per row
-params=Eleak; param_label='Eleak';
-IP_labels={'AHP_time2trough','RMP','Ih_abssag','ISI_median','AR23'};
-IP_lims={[0 40],[-90 -60],[0 2],[0 20],[.5 1.5]};
-figure; cnt=0; num_IPs=length(IP_labels);
-for i=1:num_IPs
-  subplot(num_IPs,2,cnt+1); 
-  hist(stats.pop1.(IP_labels{i})); xlim(IP_lims{i});
-  xlabel(IP_labels{i});
-  subplot(num_IPs,2,cnt+2); 
-  plot(params,stats.pop1.(IP_labels{i}),'o-'); 
-  xlabel(param_label); ylabel(IP_labels{i}); ylim(IP_lims{i});
-  cnt=cnt+2;
-end
-
-data(26).pop1_TONIC % Iinj=16
-PlotData(data(26))
-
 
 %% Class 3:
 
@@ -659,37 +443,6 @@ data=SimulateModel('dV/dt=@current-.4*(V+80)+I; {RSiNaF,RSiKDR,iCaT,iKCa,CaBuffe
 data=SimulateModel('dV/dt=@current-.4*(V+80)+I; {RSiNaF,RSiKDR,iCaT,iKCa,CaBuffer}; V(0)=-85;','vary',{'','I',[4 6];'','gKCa',0:10:50},'tspan',[0 500]);
 PlotData(data)
 
-%            AHP duration              hyperpol-sag   <ISI>      adaptation
-% TARGETS: [AHP_time2trough]   [RMP]   [Ih_abssag] [ISI_median]    [AR23]
-%          'AHP(time2trough)'  'RMP'      'Ih'    'median(ISIs)' 'ISI2/ISI3'
-% Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16          .7-1.1
-% Class 2      11-32ms       -81 to -69  .5-1.4mV    13-30         .5-.7
-% Class 3      30-70ms       -77 to -65  2.4-4.4mV   15-19         .7-1.1
-% Class 4      2-17ms        -67 to -60  1.7-2.9mV   22-39        (stops)
-% Class 5      18-58ms           ??      .3-2mV      5-25          .5-.9
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%         'SpikeAmp' 'SpikeWidth'  'ISI1'   'ThreshRate'
-%          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
-
-% Class 3 model (Group 1):
-% (RSiKDR,RSiNaF,iM,ileak) w/ (gM=10-50,Iinj=5-10) | Cm=1.2, gleak=.4, Eleak=-75, gKDR=20, gNaF=200
-mechanisms='{RSiKDR,RSiNaF,iM,ileak,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
-mods={'gNaF',200;'gKDR',20;'gleak',.4;'Eleak',-75;'Cm',1.2;'gM',20;'gh',1.5};
-% mods={'gNaF',125;'gKDR',5;'gleak',.4;'Eleak',-75;'Cm',1.2;'gM',20;'gh',1.5};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'Iinj',5:10});
-% PlotData(data,'ylim',[-100 50])
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',[-10 -7.5 -5 0:10:400],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
-% Class 3      9ms [x]          -70mV     2.5mV       37ms [x]     .89 (ARif=.25)
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%          103mV       .42ms [x]    f(Inp)     1-5Hz
 
 %% Class 4: ACC L5/6 "reset" (rat ACd: LeBeau lab) (~ Group 4)
 %{
@@ -718,39 +471,3 @@ HETEROGENEOUS PROPERTIES:
 Class 4 has higher RMP (-64>-75) and greater Ih (2.3>.9) than classes 1 and 2.
 %}
 
-%            AHP duration              hyperpol-sag   <ISI>      adaptation
-% TARGETS: [AHP_time2trough]   [RMP]   [Ih_abssag] [ISI_median]    [AR23]
-%          'AHP(time2trough)'  'RMP'      'Ih'    'median(ISIs)' 'ISI2/ISI3'
-% Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16          .7-1.1
-% Class 2      11-32ms       -81 to -69  .5-1.4mV    13-30         .5-.7
-% Class 3      30-70ms       -77 to -65  2.4-4.4mV   15-19         .7-1.1
-% Class 4      2-17ms        -67 to -60  1.7-2.9mV   22-39        (stops)
-% Class 5      18-58ms           ??      .3-2mV      5-25          .5-.9
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%         'SpikeAmp' 'SpikeWidth'  'ISI1'   'ThreshRate'
-%          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
-
-% Class 4 model (Group 4):
-% (iNaF,iKDR,iHVA,iAHP,ileak,CaBuffer) w/ (gHVA~2, gAHP~10) 	| Cm=1.2, gleak=.4, Eleak=-75, gKDR=4, gNaF=50, Iinj=35
-
-mechanisms='{iNaF,iKDR,ileak,CaBuffer,iHVA,iAHP,ih}';
-eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-75;monitor functions;' mechanisms];
-mods={'gNaF',75;'gKDR',4;'gleak',.4;'Eleak',-65;'Cm',1.2;'gHVA',2;'gAHP',10;'gh',10};
-model=ApplyModifications(eqns,mods);
-% data=SimulateModel(model,solver_options{:},'vary',{'Iinj',-10:10:40});
-% PlotData(data,'ylim',[-100 50])
-modl=ApplyModifications(model,{'Iinj',0});
-data=ProbeCellProperties(modl,'amplitudes',[-10 -7.5 -5 0:10:400],'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
-PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
-stats=CalcCellProperties(data,'plot_flag',0); 
-stats.pop1
-
-% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
-% Class 4      4.5ms          -62mV     1.7mV       11ms [x]     (stops)
-% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
-%          82mV       1.5ms       f(Inp)     1-2Hz
-
-% only classes 1 and 2 have heterogeneity, and only in gh and Eleak.
-
-% Group 5 model:
-% (iNaF,iKDR,iHVA,iAHP,ileak,CaBuffer) w/ (gHVA~2, gAHP~10) 	| Cm=1.2, gleak=.4, Eleak=-75, gKDR=4, gNaF=50, Iinj=35

@@ -1,9 +1,6 @@
 function pop = ACC_Icell_specification(type)
 % Generic ACC I-cell model (CB+ or PV+ interneuron)
 
-% List of intrinsic mechanisms
-mechanisms='{iNa,iK}';
-
 % default tonic injected current parameters
 Iapp=0;     % uA/cm2, amplitude of injected current
 onset=0;    % ms, start time of injected current
@@ -27,9 +24,25 @@ v_IC_noise=1; % mV, scale of normally distributed IC noise
 sNOISE=sprintf('sNOISE=get_input(''poisson'',Npop,T,0,0,0,tauAMPA,ones(1,Npop),baseline_rate,0,kick); baseline_rate=%g; tauAMPA=%g; kick=%g',baseline_rate,tauAMPA,kick);
 iNOISE='noise(t)=-gNOISE.*sNOISE(k,:).*(v-EAMPA); monitor noise';
 
+% List of intrinsic mechanisms
+biophysics={};
+switch type
+  case 'HH'
+    %mechanisms='{iNa,iK}';
+    mechanisms='{iNa,iK,ileak}';
+    biophysics={'gleak',.3,'Eleak',-65};
+  otherwise
+    error('only ''HH'' is supported for I-cells at this time.');
+end
+
 % population dynamics
 eqns=sprintf('dv/dt=(@current+noise(t)+Iapp*(t>=onset&t<=offset))/Cm; %s; %s; v(0)=v_IC+v_IC_noise*randn(1,Npop); v_IC=%g; v_IC_noise=%g; Cm=%g; Iapp=%g; onset=%g; offset=%g; EAMPA=%g; gNOISE=%g; %s',iNOISE,mechanisms,v_IC,v_IC_noise,Cm,Iapp,onset,offset,EAMPA,gNOISE,sNOISE);
 %eqns=sprintf('dv/dt=(@current+noise(t))/Cm; %s; %s; v(0)=v_IC+v_IC_noise*randn(1,Npop); v_IC=%g; v_IC_noise=%g; Cm=%g; EAMPA=%g; gNOISE=%g; %s',iNOISE,mechanisms,v_IC,v_IC_noise,Cm,EAMPA,gNOISE,sNOISE);
+
+% add biophysical parameters to equation string
+for i=1:2:length(biophysics)-1
+  eqns=sprintf('%s; %s=%g',eqns,biophysics{i},biophysics{i+1});
+end
 
 % collect model components in population specification
 pop.equations=eqns;

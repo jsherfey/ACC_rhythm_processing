@@ -18,6 +18,81 @@ vary=[]; modifications=[];
 % Nonspecific: ih,ileak
 Cm=1.2; % Durstewitz 2002
 
+% variations on class 1-2 model:
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'amnaf_scale',2;'gleak',.15;'gh',.025;'gCaT',1.5;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'amnaf_scale',[1 2 3];'gM',[1 2 3]});
+PlotData(data)
+data=SimulateModel(model,solver_options{:},'vary',{'amnaf_scale',[1 2 3];'gM',[0 .1 1 5 10 20]});
+PlotData(data)
+modl=ApplyModifications(model,{'Iinj',0});
+data=ProbeCellProperties(modl,'amplitudes',(-10:10:400),'tspan',[0 750],'compile_flag',1,'verbose_flag',1,'solver','rk2');
+PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
+stats=CalcCellProperties(data,'plot_flag',0); 
+stats.pop1
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',2;'gleak',.15;'gh',.025;'gCaT',1.5;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'akdr_scale',[.5 1 2 3];'amnaf_scale',[.5 1 2 3]});
+PlotData(data)
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',2;'gleak',.15;'gh',.025;'gCaT',1;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'akdr_scale',[.5 1 2 3];'amnaf_scale',[.5 1 2 3]});
+PlotData(data)
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',.5;'amnaf_scale',1;'gM',2;'gleak',.15;'gh',.025;'gCaT',1;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'gM',[0 1 2 3 5];'gCaT',[0 .5 1 1.5 2]});
+PlotData(data)
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',2;'gleak',.15;'gh',.025;'gCaT',1;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'gM',[0 1 2 3 5];'gCaT',[0 .5 1 1.5 2]});
+PlotData(data)
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',2;'gleak',.15;'gh',.025;'gCaT',1;'gKCa',0;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'gM',[0 1 2 3 5];'gCaT',[0 .5 1 1.5 2]});
+PlotData(data)
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaH,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',2;'gleak',.15;'gh',.025;'gCaH',.5;'gKCa',0;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'gM',[1 2 3 5 10];'gKCa',[1 2 3 5 10]});
+PlotData(data)
+% MODEL:    [AHP_time2trough]   [RMP]   [Ih_abssag]  [ISI_median]    [AR23]
+% Class 1      3ms (refine)     -74       .6mV          8ms        .94 (ARif=.88)
+% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
+%          81mV       1.31ms      f(Inp)     1-2Hz
+
+mechanisms='{iNaF,iKDR,ileak,ih,CaBuffer,iCaT,iKCa,iM}';
+eqns=['dV/dt=(@current+Iinj*(t>50))/Cm; Cm=1.2; Iinj=2; V(0)=-65;monitor functions;' mechanisms];
+mods={'akdr_scale',1;'amnaf_scale',2;'gM',3;'gleak',.15;'gh',.025;'gCaT',0;'gKCa',.2;'Eleak',-75;'Iinj',15};
+model=ApplyModifications(eqns,mods);
+data=SimulateModel(model,solver_options{:},'vary',{'Iinj',[0 5 10 15 20 25]});
+PlotData(data)
+modl=ApplyModifications(model,{'Iinj',0});
+data=ProbeCellProperties(modl,'amplitudes',[-10 -7.5 -5 0:10:400],'compile_flag',1,'verbose_flag',1,'solver','rk2');
+PlotData(data(unique(round(linspace(1,length(data),10)))),'ylim',[-100 50])
+stats=CalcCellProperties(data,'plot_flag',0); 
+stats.pop1
+% TARGETS: [AHP_time2trough]   [RMP]  [Ih_abssag]   [ISI_median]    [AR23]
+% Class 1      20-40ms       -85 to -65  .3-1.5mV    8-16ms        .7-1.1
+% Common:  [AP_amp]    [AP_dur]    [ISI1]     [FR_min]
+%          59-68mV   1.49-1.53ms   31-39ms     1-4Hz
+   
+% (akdr_scale < amnaf_scale) -> gradual rebound after repolarization phase (Class 1)
+% (akdr_scale > amnaf_scale) -> sharp rebound after repolarization phase (Class 2)
+
+
 taudCa=500; taurCa=80; CaRest = 50/1000; 	% umol/l, resting calcium concentration
 
 % explore interactions among {CaBuffer,iHVA,iKCa}

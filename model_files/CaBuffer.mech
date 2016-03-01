@@ -5,7 +5,7 @@ CaRest = 50/1000; 	% umol/l, resting calcium concentration
 IC=.000001; IC_noise=0
 
 % ODEs and ICs
-cai' = -@ica./taurCa+(CaRest-cai)./taudCa
+cai' = max(0,-@ica)./taurCa+(CaRest-cai)./taudCa
 cai(0) = IC+IC_noise*rand(1,Npop)
 
 % Linkers

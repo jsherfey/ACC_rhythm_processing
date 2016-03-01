@@ -22,8 +22,8 @@ options=CheckOptions(varargin,{...
   'f1',35,[],... % Hz, modulation frequency of first stimulus
   'f2',45,[],... % Hz, modulation frequency of second stimulus
   'num_repetitions',1,[],... % number of repetitions of the input (set to >1 for noisy inputs if stats are desired)
-  'dc',0,[],... % kHz
-  'ac',1,[],... % kHz
+  'DC',0,[],... % kHz
+  'AC',1,[],... % kHz
   'baseline',.1,[],... % kHz
   'tau',2,[],... % ms
   },false);
@@ -63,13 +63,16 @@ for i=1:npops
   switch options.input_type
     case 'poisson'
       % add AMPA synapse for exponentially filtered modulated poisson process
-      s1=sprintf('s1=get_input(''%s'',Npop,T,f1,dc,ac,tau,K1,baseline,phase1); phase1=0',options.input_type);
-      s2=sprintf('s2=get_input(''%s'',Npop,T,f2,dc,ac,tau,K2,baseline,phase2); phase2=0',options.input_type);
+%       s1=sprintf('s1=get_input(''%s'',Npop,T,f1,DC,AC,tau,[],baseline,phase1); phase1=0',options.input_type);
+%       s2=sprintf('s2=get_input(''%s'',Npop,T,f2,DC,AC,tau,[],baseline,phase2); phase2=0',options.input_type);
+%       eqn_mods=sprintf('cat(ODE1,-gINPUT*(K1.*s1(k,:)+K2.*s2(k,:)).*(X-0); %s; %s)',s1,s2);
+%       modifications(end+1,:)={name,'K1',K1};
+%       modifications(end+1,:)={name,'K2',K2};
+      s1=sprintf('s1=get_input(''%s'',Npop,T,f1,DC,AC,tau,%s,baseline,phase1); phase1=0',options.input_type,toString(K1));
+      s2=sprintf('s2=get_input(''%s'',Npop,T,f2,DC,AC,tau,%s,baseline,phase2); phase2=0',options.input_type,toString(K2));
       eqn_mods=sprintf('cat(ODE1,-gINPUT*(s1(k,:)+s2(k,:)).*(X-0); %s; %s)',s1,s2);
       modifications(end+1,:)={name,'equations',eqn_mods};
-      modifications(end+1,:)={name,'K1',K1};
-      modifications(end+1,:)={name,'K2',K2};
-      param_names={'gINPUT','dc','ac','tau','baseline','f1','f2','repetition'};
+      param_names={'gINPUT','DC','AC','tau','baseline','f1','f2','repetition'};
       for p=1:length(param_names)
         param=param_names{p};
         if numel(options.(param))==1
@@ -131,3 +134,19 @@ model=ApplyModifications(model,modifications);
 %     end
 %   end
 % end
+
+
+% DO NOT WORK:
+%       eqn_mods=sprintf('cat(ODE1,-gINPUT*(s1(k,:)+s2(k,:)).*(X-0))');
+%       s1=sprintf('get_input(''%s'',Npop,T,f1,dc,ac,tau,K1,baseline,0)',options.input_type);
+%       s2=sprintf('get_input(''%s'',Npop,T,f2,dc,ac,tau,K2,baseline,0)',options.input_type);
+%       modifications(end+1,:)={name,'equations',eqn_mods};
+%       modifications(end+1,:)={name,'K1',K1};
+%       modifications(end+1,:)={name,'K2',K2};
+%       modifications(end+1,:)={name,'s1',s1};
+%       modifications(end+1,:)={name,'s2',s2};
+%       s1=sprintf('s1=get_input(''%s'',Npop,T,f1,dc,ac,tau,K1,baseline,phase1); phase1=0',options.input_type);
+%       s2=sprintf('s2=get_input(''%s'',Npop,T,f2,dc,ac,tau,K2,baseline,phase2); phase2=0',options.input_type);
+%       modifications(end+1,:)={name,'K1',K1};
+%       modifications(end+1,:)={name,'K2',K2};
+

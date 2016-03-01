@@ -59,8 +59,21 @@ switch type
       end
     end
     str=str(1:end-1);
-  case {'exp','expparms'}
-    
+  case {'options'}
+    options=cellarr; % key/value options
+    for i=1:2:length(options)
+      key=options{i}; val=options{i+1};
+      if ischar(val)
+        str=[str key '-' val '_'];
+      elseif isnumeric(val) && length(val)==1
+        str=[str key num2str(val) '_'];
+      elseif isnumeric(val) && length(val)>1
+        str=[str key num2str(val(1)) '-' num2str(val(end)) '_'];
+      else
+        % don't know what to do...
+      end
+    end
+    str=str(1:end-1);
 end
 
 
